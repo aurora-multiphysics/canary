@@ -66,7 +66,7 @@
     type = MFEMGradAux
     variable = submesh_current_density
     source = submesh_potential
-    scale_factor = -62.83185
+    scale_factor = -62.83185 # = -conductivity
     execute_on = TIMESTEP_END
   []
 []
@@ -76,21 +76,13 @@
     type = MFEMScalarDirichletBC
     variable = submesh_potential
     boundary = '1'
-    coefficient = 500.0
+    coefficient = 0.5
   []
   [low_terminal]
     type = MFEMScalarDirichletBC
     variable = submesh_potential
     boundary = '2'
-    coefficient = -500.0
-  []
-[]
-
-[FunctorMaterials]
-  [Substance]
-    type = MFEMGenericFunctorMaterial
-    prop_names = conductivity
-    prop_values = 1.0
+    coefficient = -0.5
   []
 []
 
@@ -98,7 +90,6 @@
   [diff]
     type = MFEMDiffusionKernel
     variable = submesh_potential
-    coefficient = conductivity
   []
 []
 

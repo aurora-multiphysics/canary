@@ -55,15 +55,7 @@
   [tangential_a_bdr]
     type = MFEMVectorTangentialDirichletBC
     variable = a_field
-    boundary = '1 2 4'
-  []
-[]
-
-[FunctorMaterials]
-  [Vacuum]
-    type = MFEMGenericFunctorMaterial
-    prop_names = reluctivity
-    prop_values = '1.0'
+    boundary = '1 2 3 4'
   []
 []
 
@@ -71,13 +63,12 @@
   [curlcurl]
     type = MFEMCurlCurlKernel
     variable = a_field
-    coefficient = reluctivity
   []
   [source]
     type = MFEMVectorFEDomainLFKernel
     variable = a_field
     vector_coefficient = current_density
-    block = '1'
+    block = 1
   []
 []
 
@@ -92,7 +83,7 @@
 [Solver]
   type = MFEMHypreGMRES
   preconditioner = ams
-  l_tol = 1e-5
+  l_tol = 1e-6
   l_max_its = 100
 []
 
