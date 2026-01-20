@@ -1,6 +1,6 @@
 Canary
 =====
 
-Fork "Canary" to create a new MOOSE-based application.
+Repository for storing tested UKAEA MOOSE demonstration problems, examples, and associated documentation.
 
-For more information see: [https://mooseframework.inl.gov/getting_started/new_users.html#create-an-app](https://mooseframework.inl.gov/getting_started/new_users.html#create-an-app)
+All problems stored in this repository are able to be run using only components from the base MOOSE framework.
