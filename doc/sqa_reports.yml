@@ -1,0 +1,6 @@
+Applications:
+    canary:
+        app_types:
+            - CanaryApp
+        content_directory: ${ROOT_DIR}/doc/content
+        log_default: WARNING
