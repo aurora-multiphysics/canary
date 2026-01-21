@@ -29,12 +29,12 @@ jobs:
     - name: Create apptainer instance
       run: apptainer instance start moose-dev-openmpi.sif moose_instance
     - name: Checkout Canary
-      run: apptainer exec instance://moose_instance 'git clone https://github.com/aurora-multiphysics/canary.git && cd canary && git checkout ${{ github.event.pull_request.head.sha }}'
+      run: apptainer exec instance://moose_instance "git clone https://github.com/aurora-multiphysics/canary.git && cd canary && git checkout ${{ github.event.pull_request.head.sha }}"
     - name: Checkout MOOSE
-      run: apptainer exec instance://moose_instance 'git clone https://github.com/idaholab/moose.git'
+      run: apptainer exec instance://moose_instance "git clone https://github.com/idaholab/moose.git"
     - name: Build MOOSE test executable
-      run: apptainer exec instance://moose_instance 'cd moose && ./configure --with-mfem && export MOOSE_JOBS=4 && cd test && make -j4'
+      run: apptainer exec instance://moose_instance "cd moose && ./configure --with-mfem && export MOOSE_JOBS=4 && cd test && make -j4"
     - name: Run Canary tests
-      run: apptainer exec instance://moose_instance 'export MOOSE_DIR=$PWD/moose && ./canary/run_tests'
+      run: apptainer exec instance://moose_instance "export MOOSE_DIR=$PWD/moose && ./canary/run_tests"
     - name: Close apptainer instance
       run: apptainer instance stop moose_instance
