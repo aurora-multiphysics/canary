@@ -8,5 +8,8 @@ MOOSE_DIR = os.environ.get('MOOSE_DIR', MOOSE_DIR)
 
 sys.path.append(os.path.join(MOOSE_DIR, 'python'))
 
+test_executable_path = os.path.join(MOOSE_DIR, 'test', 'moose_test')
+print('Test executable path: ', test_executable_path)
+
 from TestHarness import TestHarness
-TestHarness.buildAndRun(sys.argv, 'canary', MOOSE_DIR)
+TestHarness.buildAndRun(sys.argv, test_executable_path, MOOSE_DIR)
