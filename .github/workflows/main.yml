@@ -11,7 +11,7 @@ on:
 jobs:
   docker-build-test-ubuntu:
     runs-on: ubuntu-latest
-    name: BuildTestUbuntu
+    name: RunCanaryTests
     env:
       PRCOMMITSHA: ${{ github.event.pull_request.head.sha }}
       PRREPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
@@ -29,7 +29,7 @@ jobs:
     - name: Create apptainer instance
       run: apptainer instance start moose-dev-openmpi.sif moose_instance
     - name: Checkout Canary
-      run: apptainer exec instance://moose_instance 'git clone https://github.com/aurora-multiphysics/canary.git && git checkout ${{ github.event.pull_request.head.sha }}'
+      run: apptainer exec instance://moose_instance 'git clone https://github.com/aurora-multiphysics/canary.git && cd canary && git checkout ${{ github.event.pull_request.head.sha }}'
     - name: Checkout MOOSE
       run: apptainer exec instance://moose_instance 'git clone https://github.com/idaholab/moose.git'
     - name: Build MOOSE test executable
