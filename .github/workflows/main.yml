@@ -1,0 +1,40 @@
+---
+name: BuildTest
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  docker-build-test-ubuntu:
+    runs-on: ubuntu-latest
+    name: BuildTestUbuntu
+    env:
+      PRCOMMITSHA: ${{ github.event.pull_request.head.sha }}
+      PRREPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: PrintGithubContext
+      run: echo "${PRCOMMITSHA:-$GITHUB_SHA}" "${PRREPOSITORY:-$GITHUB_REPOSITORY}"
+    - name: Setup Apptainer
+      uses: eWaterCycle/setup-apptainer@v2
+      with:
+        apptainer-version: 1.3.6
+    - name: Pull MOOSE apptainer container
+      run: apptainer build moose-dev-openmpi.sif oras://ghcr.io/idaholab/apptainer/moose-dev-openmpi-x86_64:latest
+    - name: Create apptainer instance
+      run: apptainer instance start moose-dev-openmpi.sif moose_instance
+    - name: Checkout Canary
+      run: apptainer exec instance://moose_instance 'git clone https://github.com/aurora-multiphysics/canary.git && git checkout ${{ github.event.pull_request.head.sha }}'
+    - name: Checkout MOOSE
+      run: apptainer exec instance://moose_instance 'git clone https://github.com/idaholab/moose.git'
+    - name: Build MOOSE test executable
+      run: apptainer exec instance://moose_instance 'cd moose/test && make'
+    - name: Run Canary tests
+      run: apptainer exec instance://moose_instance 'export MOOSE_DIR=$PWD/moose && ./canary/run_tests'
+    - name: Close apptainer instance
+      run: apptainer instance stop moose_instance
