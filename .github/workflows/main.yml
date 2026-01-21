@@ -33,7 +33,7 @@ jobs:
     - name: Checkout MOOSE
       run: apptainer exec instance://moose_instance 'git clone https://github.com/idaholab/moose.git'
     - name: Build MOOSE test executable
-      run: apptainer exec instance://moose_instance 'cd moose/test && make'
+      run: apptainer exec instance://moose_instance 'cd moose && ./configure --with-mfem && export MOOSE_JOBS=4 && cd test && make -j4'
     - name: Run Canary tests
       run: apptainer exec instance://moose_instance 'export MOOSE_DIR=$PWD/moose && ./canary/run_tests'
     - name: Close apptainer instance
