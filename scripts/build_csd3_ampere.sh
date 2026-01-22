@@ -22,11 +22,12 @@ module use /usr/local/software/spack/spack-modules/rocky8-a100-20230831/linux-ro
 module load openmpi/4.1.5/gcc/33z33ovn
 
 git clone https://github.com/spack/spack.git
+# shellcheck source=/dev/null
 . spack/share/spack/setup-env.sh
 
 spack install cmake
 spack install python
-spack install py-pandas^/$(spack find --format '{hash}' python)
+spack install py-pandas^/"$(spack find --format '{hash}' python)"
 spack install py-pyaml
 spack install py-packaging
 spack install py-jinja2
@@ -44,8 +45,8 @@ spack load py-setuptools
 spack load py-deepdiff
 spack load py-xmltodict
 
-git clone https://github.com/Heinrich-BR/moose.git moose_cuda
-cd moose_cuda
+git clone https://github.com/idaholab/moose.git moose_cuda
+cd moose_cuda || exit
 
 ./scripts/update_and_rebuild_petsc.sh --with-cuda --with-cuda-arch=80
 ./scripts/update_and_rebuild_libmesh.sh
@@ -55,7 +56,7 @@ cd moose_cuda
 
 ./configure --with-mfem
 
-cd framework
+cd framework || exit
 cp contrib/mfem/build-dbg/config/config.mk contrib/mfem/build-dbg/config/config.mk.bak
 cp contrib/mfem/build-dbg/config/config-install.mk contrib/mfem/build-dbg/config/config-install.mk.bak
 cp contrib/mfem/installed/share/mfem/config.mk contrib/mfem/installed/share/mfem/config.mk.bak
@@ -63,8 +64,7 @@ sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' con
 sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/build-dbg/config/config-install.mk
 sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/installed/share/mfem/config.mk
 make -j $MOOSE_JOBS
-cd ../test
+cd ../test || exit
 make -j $MOOSE_JOBS
 
 export LD_LIBRARY_PATH=${STDCXX_PATH}:$LD_LIBRARY_PATH
-
