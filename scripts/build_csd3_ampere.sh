@@ -12,7 +12,7 @@
 ## This script builds MOOSE with MFEM configured for CUDA support. It is designed for the Ampere partition on the CSD3 machine
 ## To run, substitute <ACCOUNT_NAME> with your project account before submitting the job
 
-export METHOD=dbg
+export METHOD=opt
 export MOOSE_JOBS=32
 export STDCXX_PATH=/usr/local/software/spack/spack-rhel8-20210927/opt/spack/linux-rocky8-x86_64_v3/gcc-8.5.0/gcc-11.3.0-r7adil6umxm6geju4jjmtwo4ecbkzpeo/lib64
 
@@ -52,7 +52,7 @@ cd moose_cuda || exit
 ./scripts/update_and_rebuild_libmesh.sh
 ./scripts/update_and_rebuild_conduit.sh
 ./scripts/update_and_rebuild_wasp.sh
-./scripts/update_and_rebuild_mfem.sh -DMFEM_USE_CUDA=YES -DCUDA_ARCH=sm_80 -DCMAKE_BUILD_TYPE=Debug
+./scripts/update_and_rebuild_mfem.sh -DMFEM_USE_CUDA=YES -DCUDA_ARCH=sm_80
 
 ./configure --with-mfem
 
