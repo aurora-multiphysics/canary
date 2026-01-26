@@ -57,11 +57,11 @@ cd moose_cuda || exit
 ./configure --with-mfem
 
 cd framework || exit
-cp contrib/mfem/build-dbg/config/config.mk contrib/mfem/build-dbg/config/config.mk.bak
-cp contrib/mfem/build-dbg/config/config-install.mk contrib/mfem/build-dbg/config/config-install.mk.bak
+cp contrib/mfem/build-opt/config/config.mk contrib/mfem/build-opt/config/config.mk.bak
+cp contrib/mfem/build-opt/config/config-install.mk contrib/mfem/build-opt/config/config-install.mk.bak
 cp contrib/mfem/installed/share/mfem/config.mk contrib/mfem/installed/share/mfem/config.mk.bak
-sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/build-dbg/config/config.mk
-sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/build-dbg/config/config-install.mk
+sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/build-opt/config/config.mk
+sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/build-opt/config/config-install.mk
 sed -i.bak 's/\$<\$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler *>//g' contrib/mfem/installed/share/mfem/config.mk
 make -j $MOOSE_JOBS
 cd ../test || exit
