@@ -21,6 +21,9 @@ module load rhel8/slurm
 module use /usr/local/software/spack/spack-modules/rocky8-a100-20230831/linux-rocky8-zen3
 module load openmpi/4.1.5/gcc/33z33ovn
 
+export CXX=mpicxx
+export CC=mpicc
+
 git clone https://github.com/spack/spack.git
 # shellcheck source=/dev/null
 . spack/share/spack/setup-env.sh
