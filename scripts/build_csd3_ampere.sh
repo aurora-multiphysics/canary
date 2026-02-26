@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 
 ## This script builds MOOSE with MFEM configured for CUDA support. It is designed for the Ampere partition on the CSD3 machine
 ## To run, substitute <ACCOUNT_NAME> with your project account before submitting the job
