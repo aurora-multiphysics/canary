@@ -12,7 +12,7 @@
 ## This script builds MOOSE with MFEM configured for HIP support. It is designed for the MI300X partition on the CSD3 machine
 ## To run, substitute <ACCOUNT_NAME> with your project account before submitting the job
 
-export METHOD=dbg
+export METHOD=opt
 export MOOSE_JOBS=32
 export HIP_ARCH=gfx942
 
