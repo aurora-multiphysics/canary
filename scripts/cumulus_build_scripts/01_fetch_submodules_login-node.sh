@@ -22,10 +22,7 @@ PKGS_DIR="$HOME/petsc_packages" #directory where 02 point at
 # Commands for better readable and pretty output formatting
 info() { echo "[INFO] $*"; }
 warn() { echo "[WARN] $*"; }
-error() {
-    echo "[ERROR] $*"
-    exit 1
-}
+error() { echo "[ERROR] $*"; exit 1; }
 step() {
     echo ""
     echo "=== $* ==="
