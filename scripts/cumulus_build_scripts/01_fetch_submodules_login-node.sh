@@ -10,7 +10,7 @@
 #
 # USAGE   : bash 01_fetch_submodules_loginnode.sh . 
 #           (from any directory — it finds MOOSE via $HOME/moose)
-# PS ./01_fetch_submodules_loginnode.sh won't work because it needs sudo access
+# PS ./01_fetch_submodules_loginnode.sh won't work because it needs sudo rights
 # =============================================================================
 
 set -e
@@ -20,10 +20,12 @@ MOOSE_DIR="$HOME/moose"
 PKGS_DIR="$HOME/petsc_packages" #directory where 02 point at
 
 # Commands for better readable and pretty output formatting
-
-info()  { echo "[INFO]  $*"; }
-warn()  { echo "[WARN]  $*"; }
-error() { echo "[ERROR] $*"; exit 1; }
+info() { echo "[INFO]  $*"; }
+warn() { echo "[WARN]  $*"; }
+error() {
+    echo "[ERROR] $*"
+    exit 1
+}
 step() {
     echo ""
     echo "=== $* ==="
@@ -35,18 +37,19 @@ step "Pre-flight checks"
 
 command -v git >/dev/null 2>&1 || error "git not found. Load it: module load git"
 
-[ -d "$MOOSE_DIR" ]             || error "MOOSE not found at $MOOSE_DIR"
+[ -d "$MOOSE_DIR" ] || error "MOOSE not found at $MOOSE_DIR"
 [ -f "$MOOSE_DIR/.gitmodules" ] || error "Not a git repo: $MOOSE_DIR"
 
 if [ -n "${SLURM_JOB_ID:-}" ]; then
-    warn "SLURM_JOB_ID is set — you appear to be on a compute node."
+    warn "SLURM_JOB_ID is set - you appear to be on a compute node."
     warn "This script needs internet. Continue anyway? [y/N]"
-    read -r ans; [[ "$ans" =~ ^[Yy]$ ]] || exit 1
+    read -r ans
+    [[ "$ans" =~ ^[Yy]$ ]] || exit 1
 fi
 
 info "Checking internet connectivity..."
-curl -s --max-time 5 https://github.com > /dev/null 2>&1 \
-    || error "Cannot reach github.com — run this on a login node."
+curl -s --max-time 5 https://github.com >/dev/null 2>&1 \
+    || error "Cannot reach github.com - run this on a login node."
 info "Internet OK."
 
 mkdir -p "$PKGS_DIR"
@@ -58,19 +61,18 @@ download() {
         info "Already present: $(basename "$out") ($(du -sh "$out" | cut -f1))"
         return 0
     fi
-    info "Downloading $(basename "$out") from $url ..."
+    info "Downloading $(basename "$out") ..."
     if command -v wget >/dev/null 2>&1; then
         wget -q --show-progress -c "$url" -O "$out" \
-            || { warn "wget failed, retrying with curl..."; curl -L -C - -o "$out" "$url"; }
+            || { warn "wget failed, retrying with curl..."; curl -L -o "$out" "$url"; }
     else
-        curl -L -C - -o "$out" "$url"
+        curl -L -o "$out" "$url"
     fi
-    # Validate — reject HTML error pages
     if ! file "$out" | grep -qE "gzip|bzip2|XZ|Zip|tar"; then
         rm -f "$out"
         error "Download failed or returned non-tarball content for: $url"
     fi
-    info "  ✓ $(du -sh "$out" | cut -f1)"
+    info "  OK: $(du -sh "$out" | cut -f1)"
 }
 
 # get hash of a submodule from git (function)
@@ -86,10 +88,10 @@ clone_pinned() {
         local current
         current=$(git -C "$path" rev-parse HEAD 2>/dev/null || echo "unknown")
         if [ "$current" = "$hash" ]; then
-            info "$name already at correct commit $hash — skipping."
+            info "$name already at correct commit $hash - skipping."
             return 0
         else
-            warn "$name checked out at $current, expected $hash — re-cloning."
+            warn "$name checked out at $current, expected $hash - re-cloning."
         fi
     fi
     info "Cloning $name @ $hash ..."
@@ -99,7 +101,7 @@ clone_pinned() {
     git fetch --all --quiet
     git checkout "$hash"
     git submodule update --init --recursive
-    info "$name ✓"
+    info "$name cloned OK"
 }
 
 
@@ -109,7 +111,7 @@ step "Section 1: PETSc submodule"
 
 cd "$MOOSE_DIR"
 git submodule update --init petsc
-info "PETSc submodule ✓"
+info "PETSc submodule OK"
 
 # SECTION 2 — Determine PETSc external package URLs from configure.py
 # in the from the moose directory
@@ -159,8 +161,6 @@ CONFIGURE_OUT=$(
 echo "$CONFIGURE_OUT" | grep -v "^Executing\|^stdout\|^$" | head -60 || true
 echo ""
 
-# Parse URLs from the output and download each one
-# PETSc output format: "pkgname ['url1', 'url2', ...]"
 info "Parsing and downloading packages listed by PETSc configure..."
 
 # Parse URLs from PETSc output.
@@ -194,7 +194,7 @@ while IFS= read -r line; do
         # Filename is the last path component of the URL
         fname=$(basename "$url")
 
-        # Safety: skip if fname is empty or looks like a directory
+        # Safety: skip if filenname is empty or looks like a directory
         if [ -z "$fname" ] || [ -d "$PKGS_DIR/$fname" ]; then
             warn "Skipping $pkg — could not determine output filename from URL: $url"
             continue
