@@ -8,7 +8,7 @@
 # Hashes and URLs are read automatically from the checked-out repo,
 # so this script works with any MOOSE version.
 #
-# USAGE   : bash 01_fetch_submodules_loginnode.sh . 
+# USAGE   : bash 01_fetch_submodules_loginnode.sh
 #           (from any directory — it finds MOOSE via $HOME/moose)
 # PS ./01_fetch_submodules_loginnode.sh won't work because it needs sudo rights
 # =============================================================================
@@ -20,8 +20,8 @@ MOOSE_DIR="$HOME/moose"
 PKGS_DIR="$HOME/petsc_packages" #directory where 02 point at
 
 # Commands for better readable and pretty output formatting
-info() { echo "[INFO]  $*"; }
-warn() { echo "[WARN]  $*"; }
+info() { echo "[INFO] $*"; }
+warn() { echo "[WARN] $*"; }
 error() {
     echo "[ERROR] $*"
     exit 1
@@ -32,7 +32,7 @@ step() {
     echo "=================================================="
 }
 
-# prechecks 
+# prechecks
 step "Pre-flight checks"
 
 command -v git >/dev/null 2>&1 || error "git not found. Load it: module load git"
@@ -104,7 +104,6 @@ clone_pinned() {
     info "$name cloned OK"
 }
 
-
 # SECTION 1 — PETSc submodule
 
 step "Section 1: PETSc submodule"
@@ -129,33 +128,33 @@ info "This will exit with code 10 (normal) and print the list of packages."
 echo ""
 
 CONFIGURE_OUT=$(
-  cd "$MOOSE_DIR/petsc"
-  python3 ./configure \
-    --with-packages-download-dir="$PKGS_DIR" \
-    --with-debugging=no \
-    --with-mpi=1 \
-    --with-shared-libraries=1 \
-    --with-cxx-dialect=C++17 \
-    --with-fortran-bindings=0 \
-    --with-sowing=0 \
-    --download-fblaslapack=1 \
-    --download-hypre=1 \
-    --download-metis=1 \
-    --download-parmetis=1 \
-    --download-mumps=1 \
-    --download-scalapack=1 \
-    --download-superlu_dist=1 \
-    --download-slepc=1 \
-    --download-strumpack=1 \
-    --download-hdf5=1 \
-    --download-libceed=1 \
-    --download-openblas=1 \
-    --download-hpddm=1 \
-    --download-ptscotch=0 \
-    --download-kokkos=0 \
-    --download-kokkos-kernels=0 \
-    --download-umpire=0 \
-    2>&1 || true   # exit 10 is expected
+    cd "$MOOSE_DIR/petsc"
+    python3 ./configure \
+        --with-packages-download-dir="$PKGS_DIR" \
+        --with-debugging=no \
+        --with-mpi=1 \
+        --with-shared-libraries=1 \
+        --with-cxx-dialect=C++17 \
+        --with-fortran-bindings=0 \
+        --with-sowing=0 \
+        --download-fblaslapack=1 \
+        --download-hypre=1 \
+        --download-metis=1 \
+        --download-parmetis=1 \
+        --download-mumps=1 \
+        --download-scalapack=1 \
+        --download-superlu_dist=1 \
+        --download-slepc=1 \
+        --download-strumpack=1 \
+        --download-hdf5=1 \
+        --download-libceed=1 \
+        --download-openblas=1 \
+        --download-hpddm=1 \
+        --download-ptscotch=0 \
+        --download-kokkos=0 \
+        --download-kokkos-kernels=0 \
+        --download-umpire=0 \
+        2>&1 || true # exit 10 is expected
 )
 
 echo "$CONFIGURE_OUT" | grep -v "^Executing\|^stdout\|^$" | head -60 || true
@@ -169,7 +168,7 @@ info "Parsing and downloading packages listed by PETSc configure..."
 #  extract only https:// tarball URLs (not git clone lines).
 while IFS= read -r line; do
     # Match lines that start with a word then a space then ['
-    if echo "$line" | grep -qE "^[a-zA-Z_][a-zA-Z0-9_]* \['" ; then
+    if echo "$line" | grep -qE "^[a-zA-Z_][a-zA-Z0-9_]* \['"; then
         pkg=$(echo "$line" | awk '{print $1}')
 
         # Pull out every https URL ending in .tar.gz or .tgz
@@ -203,21 +202,20 @@ while IFS= read -r line; do
         info "Package: $pkg  ->  $fname"
         download "$url" "$PKGS_DIR/$fname"
     fi
-done <<< "$CONFIGURE_OUT"
+done <<<"$CONFIGURE_OUT"
 
 info "All PETSc tarballs downloaded into $PKGS_DIR"
 echo ""
 ls -lh "$PKGS_DIR"
 
 # SECTION 3 — libMesh submodules (eigen, netgen)
-# netgen on cumulus module goes up to version GCCcore-12.3.0 
+# netgen on cumulus module goes up to version GCCcore-12.3.0
 # Here version >13.0.0 is needed aparently
 step "Section 3: libMesh submodules"
 
 cd "$MOOSE_DIR"
 git submodule update --init --recursive libmesh
-info "libMesh submodules ✓"
-
+info "libMesh submodules OK"
 
 # SECTION 4 — WASP
 step "Section 4: WASP submodule"
@@ -234,9 +232,7 @@ CONDUIT_HASH=$(submodule_hash "$MOOSE_DIR" "framework/contrib/conduit")
 info "Pinned Conduit commit: $CONDUIT_HASH"
 
 # Resolve relative URL from .gitmodules  (../../LLNL/conduit.git)
-MOOSE_REMOTE=$(git -C "$MOOSE_DIR" remote get-url origin)
 CONDUIT_URL="https://github.com/LLNL/conduit.git"
-info "Conduit URL: $CONDUIT_URL"
 
 clone_pinned \
     "$MOOSE_DIR/framework/contrib/conduit" \
@@ -265,8 +261,8 @@ step "Section 7: GSLIB (required by MFEM)"
 # Read the tag/commit MFEM's CMakeLists expects
 MFEM_CMAKE="$MOOSE_DIR/framework/contrib/mfem/CMakeLists.txt"
 GSLIB_TAG=$(grep -A5 "gslib\|GSLIB" "$MFEM_CMAKE" 2>/dev/null \
-            | grep -iE "GIT_TAG|VERSION" | head -1 \
-            | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+    | grep -iE "GIT_TAG|VERSION" | head -1 \
+    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
 
 GSLIB_DIR="$PKGS_DIR/gslib"
 GSLIB_URL="https://github.com/Nek5000/gslib.git"
@@ -290,8 +286,7 @@ else
     warn "Could not auto-detect GSLIB version from MFEM CMakeLists — using latest main"
     git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
 fi
-info "GSLIB ✓  (stored at $GSLIB_DIR)"
-
+info "GSLIB OK  (stored at $GSLIB_DIR)"
 
 # SECTION 8 — HYPRE hash verification
 # (PETSc configure already handled the download above, but we double-check
@@ -299,16 +294,14 @@ info "GSLIB ✓  (stored at $GSLIB_DIR)"
 
 step "Section 8: Verify HYPRE hash"
 
-HYPRE_FILE=$(ls "$PKGS_DIR"/*hypre* 2>/dev/null \
-             || ls "$PKGS_DIR"/85b7795* 2>/dev/null \
-             || true | head -1)
+HYPRE_FILE=$(find "$PKGS_DIR" -maxdepth 1 -name "*hypre*" -type f 2>/dev/null | head -1)
 if [ -n "$HYPRE_FILE" ] && [ -s "$HYPRE_FILE" ]; then
     info "HYPRE tarball present: $(basename "$HYPRE_FILE") ($(du -sh "$HYPRE_FILE" | cut -f1))"
 else
     # PETSc configure should have got it; if not, grab it explicitly
     warn "HYPRE tarball not detected — fetching manually..."
     HYPRE_HASH=$(grep -r "hypre" "$MOOSE_DIR/petsc/config/BuildSystem/config/packages/HYPRE.py" \
-                 2>/dev/null | grep -oP '[0-9a-f]{40}' | head -1 || echo "")
+        2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1 || echo "")
     if [ -n "$HYPRE_HASH" ]; then
         info "HYPRE hash from PETSc config: $HYPRE_HASH"
         download \
@@ -319,10 +312,9 @@ else
     fi
 fi
 
-
-# FINAL SUMMARY 
+# FINAL SUMMARY
 # Print out summary with relevant info for 02_build_moose_computenode.sh
-#Also sanity check
+# Also sanity check
 
 echo ""
 echo "============================================================"
@@ -330,7 +322,7 @@ echo "  Pre-fetch complete!"
 echo "============================================================"
 echo ""
 echo "  Tarballs staging dir : $PKGS_DIR"
-echo "  Tarball count        : $(ls "$PKGS_DIR"/*.tar.gz 2>/dev/null | wc -l)"
+echo "  Tarball count        : $(find "$PKGS_DIR" -maxdepth 1 -name '*.tar.gz' | wc -l)"
 du -sh "$PKGS_DIR"
 echo ""
 echo "  Submodule status:"
