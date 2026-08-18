@@ -38,10 +38,10 @@ export BUILD_DIR
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}" || exit
 
-git clone --depth=2 https://github.com/spack/spack.git
+git clone --depth=1 --branch v1.1.1 https://github.com/spack/spack.git
 # shellcheck source=/dev/null
 source spack/share/spack/setup-env.sh
-spack install gcc
+spack install gcc@15.2.0
 spack env create amd-env
 spack env activate amd-env
 
