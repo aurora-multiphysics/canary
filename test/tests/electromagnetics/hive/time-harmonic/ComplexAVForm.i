@@ -176,7 +176,6 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     scale_factors_real = '-1.0 0.0'
     scale_factors_imag = '0.0 -${angfreq}'
     execute_on = TIMESTEP_END
-    execution_order_group = 3 # Evaluate after transfer of grad v to parent mesh
   []
   [joule_heat_1]
     type = MFEMInnerProductAux
@@ -185,7 +184,6 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     second_source_vec = e_field_real
     coefficient = sigma
     execute_on = TIMESTEP_END
-    execution_order_group = 4 # Evaluate after e_field update
   []
   [joule_heat_2]
     type = MFEMInnerProductAux
@@ -194,7 +192,6 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     second_source_vec = e_field_imag
     coefficient = sigma
     execute_on = TIMESTEP_END
-    execution_order_group = 4 # Evaluate after e_field update
   []
   [joule_heat]
     type = MFEMSumAux
@@ -202,7 +199,6 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     source_variables = 'q1_field q2_field'
     scale_factors = '0.5 0.5'
     execute_on = TIMESTEP_END
-    execution_order_group = 5
   []
 []
 
@@ -294,16 +290,18 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     type = MFEMMixedSesquilinearFormKernel
     trial_variable = a_field
     variable = coil_electric_potential
-    transpose = true
     [ImagComponent]
       type = MFEMMixedVectorGradientKernel
       coefficient = loss_coef_coil
+      transpose = true
     []
   []      
 []
 
-[Solver]
-  type = MFEMMUMPS
+[Solvers]
+  [main]
+    type = MFEMMUMPS
+  []
 []
 
 [Executioner]
@@ -317,7 +315,6 @@ coil_av_current_density = '${fparse coil_current / terminal_area}'
     from_variable = grad_v
     to_variable = parent_grad_v
     execute_on = TIMESTEP_END
-    execution_order_group = 2
   []
 []
 
