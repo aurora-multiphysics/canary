@@ -3,18 +3,39 @@ Content:
         root_dir: ${ROOT_DIR}/doc/content
     moose:
         root_dir: ${MOOSE_DIR}/framework/doc/content
+        # Only the assets needed to render the site are pulled from MOOSE. The
+        # framework's own object pages (source/**, syntax/**) are deliberately
+        # NOT included: they autolink to each other and to the large_media
+        # submodule, so including any subset produces broken-link errors and
+        # including all of them requires cloning large_media (~GB) in CI.
+        # Canary pages therefore link to mooseframework.inl.gov for object
+        # documentation, while '!syntax' commands below still render locally
+        # because they are generated from the executable, not from these pages.
         content:
-            - js/*
-            - css/*
+            - bib/**
             - contrib/**
+            - css/*
+            - js/*
             - media/**
 Renderer:
     type: MooseDocs.base.MaterializeRenderer
 Extensions:
     MooseDocs.extensions.navigation:
         name: Canary
+        repo: https://github.com/aurora-multiphysics/canary
+        menu:
+            Problems: problems/index.md
     MooseDocs.extensions.appsyntax:
-        executable: ${ROOT_DIR}
+        # Canary deliberately has no executable of its own; the syntax dump is
+        # taken from the moose_test application already built in MOOSE_DIR.
+        executable: ${MOOSE_DIR}/test
+        app_name: moose_test
         remove: !include ${MOOSE_DIR}/framework/doc/remove.yml
         includes:
-            - include
+            - ${MOOSE_DIR}/framework/include
+        inputs:
+            - ${ROOT_DIR}/test/tests
+    MooseDocs.extensions.common:
+        shortcuts: !include ${MOOSE_DIR}/framework/doc/globals.yml
+    MooseDocs.extensions.acronym:
+        acronyms: !include ${MOOSE_DIR}/framework/doc/acronyms.yml
