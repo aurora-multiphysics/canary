@@ -1,20 +1,45 @@
-# Solve for the magnetic field around a closed conductor subject to
-# global current constraint.
+# TEAM Problem 4 (FELIX brick): the applied background field
+# ==========================================================
+#
+# Sub-app of team4_induced_field.i, which is the input you actually run. See
+# README.md in this directory for the benchmark description.
+#
+# The benchmark applies a uniform axial field B_ext(t) = B0 * exp(-t/tau) * z_hat.
+# This app builds its spatial part, B0 * z_hat, as an H(curl) field.
+#
+# That field could be written down directly, but projecting an analytic function
+# onto H(curl) leaves a small discrete curl behind, which the main app would read as
+# a spurious source current. Solving for a scalar potential and taking its gradient
+# instead gives a field that is a discrete gradient by construction, so its discrete
+# curl is zero to machine precision. The potential problem is
+#
+#   div(mu grad(phi)) = 0,    phi = z on the boundaries where B is normal,
+#
+# whose solution is phi = z. The x = 0 and y = 0 symmetry planes are left with the
+# natural condition mu * dphi/dn = 0, which phi = z satisfies exactly, so the
+# discrete solution recovers the uniform field to round-off. Finally
+#
+#   H_ext = (B0 / mu0) grad(phi) = (B0 / mu0) z_hat.
 
-normal_b_boundaries = '1 2 5 6' 
-vacuum_permeability = '${fparse (4*pi*1e-7)}'
+applied_b_field = 0.1 # T, B0 in B_ext(t) = B0 * exp(-t/tau) * z_hat
+vacuum_permeability = '${fparse 4 * pi * 1e-7}' # H/m
+
+# B is normal to the z = 0 symmetry plane and, since the brick perturbs it only
+# locally, effectively normal to the far-field faces too, so the potential is pinned
+# on all four. The x = 0 and y = 0 symmetry planes are left to the natural condition.
+normal_b_boundaries = 'z_low z_high x_high y_high'
+
+[Mesh]
+  type = MFEMFileMesh
+  file = ./team4_symmetrized.e
+[]
 
 [Problem]
   type = MFEMProblem
 []
 
-[Mesh]
-    type = MFEMMesh
-    file = ./team4_symmetrized.e
-[]
-
 [Functions]
-  # Here, externally applied B field = grad (magnetic_potential)
+  # Both the Dirichlet value and, by construction, the solution everywhere.
   [boundary_magnetic_potential]
     type = ParsedFunction
     expression = z
@@ -50,9 +75,28 @@ vacuum_permeability = '${fparse (4*pi*1e-7)}'
 []
 
 [AuxVariables]
+  # Copied to the main app by MultiAppMFEMCopyTransfer, which needs the variable
+  # name and finite element space to match on both sides.
   [external_h_field]
     type = MFEMVariable
     fespace = HCurlFESpace
+  []
+[]
+
+[Kernels]
+  [diffusion]
+    type = MFEMDiffusionKernel
+    variable = magnetic_potential
+    coefficient = permeability
+  []
+[]
+
+[BCs]
+  [applied_potential]
+    type = MFEMScalarDirichletBC
+    variable = magnetic_potential
+    boundary = ${normal_b_boundaries}
+    coefficient = boundary_magnetic_potential
   []
 []
 
@@ -61,64 +105,25 @@ vacuum_permeability = '${fparse (4*pi*1e-7)}'
     type = MFEMGradAux
     variable = external_h_field
     source = magnetic_potential
-    scale_factor = '${fparse (0.1/vacuum_permeability)}' # -B0 * mu
-    execute_on = TIMESTEP_END
+    scale_factor = '${fparse applied_b_field / vacuum_permeability}'
   []
 []
 
-[BCs]
-  # Set zero of magnetic potential on symmetry plane
-  [MagneticInsulatingBoundaries]
-    type = MFEMScalarDirichletBC
-    variable = magnetic_potential
-    boundary = ${normal_b_boundaries}
-    coefficient = boundary_magnetic_potential
-  []
-[]
-
-[Kernels]
-  [mu.gradphi,gradphi]
-    type = MFEMDiffusionKernel
-    variable = magnetic_potential
-    coefficient = permeability
-  []
-[]
-
-[Preconditioner]
+[Solvers]
   [boomeramg]
     type = MFEMHypreBoomerAMG
   []
-[]
-
-[Solver]
-  type = MFEMHypreGMRES
-  preconditioner = boomeramg
-  l_tol = 1e-8
-  l_max_its = 100
+  [gmres]
+    type = MFEMHypreGMRES
+    preconditioner = boomeramg
+    l_tol = 1e-10
+    l_max_its = 100
+  []
 []
 
 [Executioner]
   type = MFEMSteady
 []
 
-[Postprocessors]
-  [MagneticEnergy]
-    type = MFEMVectorFEInnerProductIntegralPostprocessor
-    coefficient = ${fparse 0.5*vacuum_permeability}
-    dual_variable = external_h_field
-    primal_variable = external_h_field
-    execution_order_group = 1
-  []
-[]
-
-[Outputs]
-  [ReportedPostprocessors]
-    type = CSV
-    file_base = OutputData/HPhiMagnetostaticClosedCoilCSV
-  []
-  [VacuumParaViewDataCollection]
-    type = MFEMParaViewDataCollection
-    file_base = OutputData/HPhiMagnetostaticClosedCoil
-    vtk_format = ASCII
-  []
-[]
+# No Outputs block: external_h_field is transferred to the main app and written out
+# from there, so writing it twice would only duplicate files.
