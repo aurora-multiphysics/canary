@@ -1,8 +1,9 @@
 # TEAM Problem 4 (FELIX brick): eddy currents in a decaying background field
 # ==========================================================================
 #
-# Run this input; it pulls in team4_external_source_field.i as a sub-app. See
-# README.md in this directory for the benchmark description and reference data.
+# Run this input; it pulls in team4_external_source_field.i as a sub-app. The
+# benchmark, results and convergence study are documented in
+# doc/content/problems/team_problem_4.md.
 #
 # A hollow aluminium brick sits in a uniform axial field that is switched off with
 # an exponential decay,
@@ -192,7 +193,12 @@ tangential_induced_h_boundaries = 'z_low z_high x_high y_high'
 
 [Executioner]
   type = MFEMTransient
-  dt = 0.001
+  # Only implicit Euler is available for MFEMTransient, so the timestep carries a
+  # first-order error and has to be small. At dt = 1.25e-4 the peak current is within
+  # 1% of the Richardson-extrapolated value; see the convergence table in the
+  # documentation. Coarsening to 1e-3 costs about 6% in the peak but runs ten times
+  # faster.
+  dt = 0.000125
   start_time = 0.0
   end_time = 0.02
 []
@@ -225,11 +231,12 @@ tangential_induced_h_boundaries = 'z_low z_high x_high y_high'
     type = CSV
     file_base = OutputData/TEAM4CSV
   []
-  # Each snapshot of the field is around 18 MB, so only every fifth step is written.
-  # The postprocessor histories above keep the full time resolution.
+  # Each snapshot of the field is around 18 MB, so only every fortieth step is
+  # written, giving five across the 20 ms. The postprocessor histories above keep the
+  # full time resolution.
   [ParaViewDataCollection]
     type = MFEMParaViewDataCollection
     file_base = OutputData/TEAM4
-    time_step_interval = 5
+    time_step_interval = 40
   []
 []
