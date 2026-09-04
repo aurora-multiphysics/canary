@@ -1,8 +1,8 @@
 # TEAM Problem 4 (FELIX brick): the applied background field
 # ==========================================================
 #
-# Sub-app of team4_induced_field.i, which is the input you actually run. See
-# README.md in this directory for the benchmark description.
+# Sub-app of team4_induced_field.i, which is the input you actually run. The
+# benchmark is described in doc/content/problems/team_problem_4.md.
 #
 # The benchmark applies a uniform axial field B_ext(t) = B0 * exp(-t/tau) * z_hat.
 # This app builds its spatial part, B0 * z_hat, as an H(curl) field.
