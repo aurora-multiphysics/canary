@@ -72,7 +72,10 @@ jobs:
       - name: Checkout Canary
         run: apptainer exec instance://moose_instance bash -c "git clone https://github.com/${PRREPOSITORY:-$GITHUB_REPOSITORY}.git && cd canary && git checkout ${PRCOMMITSHA:-$GITHUB_SHA}"
       - name: Build documentation
+        # $PWD and $site have to be expanded by the shell inside the container
+        # rather than by the runner, so they are deliberately single quoted.
         run: |
+          # shellcheck disable=SC2016
           apptainer exec instance://moose_instance bash -c '
             set -e
             site="$PWD/site"
