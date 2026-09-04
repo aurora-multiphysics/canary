@@ -5,7 +5,7 @@ series. A hollow aluminium brick sits in a uniform axial magnetic field which is
 exponential decay. The decaying field drives eddy currents that circulate around the hole, and the benchmark
 quantities are the current crossing the brick wall and the ohmic power those currents dissipate.
 
-The hole is what gives the problem its teeth. It makes the conducting region multiply connected, so the
+The hole makes the problem non-trivial by making the conducting region multiply connected, so the
 formulation has to support a net current circulating around a loop that cannot be shrunk to a point.
 
 This example uses the MFEM backend of MOOSE, so it requires an application built with MFEM support. It is
@@ -106,6 +106,7 @@ plane.
 | `team4_external_source_field.i` | Sub-app: the applied background field. Launched automatically. |
 | `team4_symmetrized.e` | Octant mesh, 26760 tetrahedra. |
 | `plot_team4_current.py` | Draws the current history below from the postprocessor CSV. |
+| `run_convergence_study.py` | Repeats the convergence study and extrapolates to zero error. |
 | `tests` | Test harness specification. |
 | `gold/` | Reference postprocessor output. |
 
@@ -122,7 +123,7 @@ The main app launches the sub-app itself, so only one input needs to be given:
 or, from the repository root, through the test harness:
 
 ```bash
-./run_tests --re team4
+./run_tests --re TEAM_Problem_4
 ```
 
 Results are written to `OutputData/`. `TEAM4CSV.csv` holds the postprocessor time histories and `TEAM4/` holds a
@@ -173,38 +174,56 @@ disagreement between the two limb currents over the run, which is the consistenc
 
 ## Convergence id=convergence
 
-`MFEMTransient` currently offers only implicit Euler — `bdf2` and `crank-nicolson` are rejected — so the time
-discretisation is first-order and the timestep dominates the error. Refining it gives textbook first-order
-behaviour:
-
-| $\Delta t$ (s) | Steps | Peak current (A) | Peak power (W) | Error in peak current | Runtime |
-| :- | -: | -: | -: | -: | -: |
-| $5 \times 10^{-3}$ | 4 | 1245.7 | 7.911 | 27.8% | 6 s |
-| $2 \times 10^{-3}$ | 10 | 1513.9 | 11.254 | 12.3% | 6 s |
-| $1 \times 10^{-3}$ | 20 | 1615.8 | 12.710 | 6.4% | 12 s |
-| $5 \times 10^{-4}$ | 40 | 1669.3 | 13.520 | 3.3% | 24 s |
-| $2.5 \times 10^{-4}$ | 80 | 1697.0 | 13.947 | 1.7% | 46 s |
-| $1.25 \times 10^{-4}$ | 160 | 1711.3 | 14.170 | 0.8% | 92 s |
-| Richardson extrapolation | | 1725.6 | 14.392 | | |
-
-Successive differences fall by factors of 1.90, 1.93 and 1.94 as the timestep is halved, giving observed orders
-of 0.93, 0.95 and 0.96, converging on the expected 1. Errors above are measured against the Richardson
-extrapolation to $\Delta t \rightarrow 0$ taken from the two finest steps. The shipped
-$\Delta t = 1.25 \times 10^{-4}$ s is the coarsest that keeps the peak current within 1% of that limit; it takes
-around 90 seconds. Adding `Executioner/dt=0.001` on the command line finishes in about 12 seconds at the cost of
-roughly 6% in the peak.
-
-Spatial error is much smaller and does not drive the choice. One uniform refinement of the mesh, at fixed
-$\Delta t = 10^{-3}$ s, moves the peak current by 0.39% (1615.8 A to 1622.1 A) at eight times the element count,
-so the supplied mesh contributes a few tenths of a percent at most. To check this:
+Time discretisation is first-order and the timestep dominates the error. `run_convergence_study.py` repeats the
+study below and reports the extrapolated limit:
 
 ```bash
-<moose app> -i team4_induced_field.i Mesh/uniform_refine=1 \
-  MultiApps/external_source_field/cli_args=Mesh/uniform_refine=1
+cd test/tests/electromagnetics/team/problem_4
+./run_convergence_study.py --exe /path/to/app-opt        # or set MOOSE_APP / MOOSE_DIR
 ```
 
-Both meshes have to be refined together, because `MultiAppMFEMCopyTransfer` copies degrees of freedom directly
-and requires the two apps to agree exactly.
+It halves the timestep from `--dt0` and prints the table straight into this page's format. Both figures of merit
+are quoted for the whole brick, as in the [Results](#results) table's second column: the current is doubled to
+span the full cross-section, and the dissipation is summed over all eight octants.
+
+| $\Delta t$ (s) | Steps | Peak current (kA) | Peak power (W) | Error in peak current | Runtime |
+| :- | -: | -: | -: | -: | -: |
+| $4 \times 10^{-3}$ | 5 | 2.685 | 70.57 | 22.2% | 4 s |
+| $2 \times 10^{-3}$ | 10 | 3.028 | 90.03 | 12.3% | 7 s |
+| $1 \times 10^{-3}$ | 20 | 3.232 | 101.68 | 6.4% | 13 s |
+| $5 \times 10^{-4}$ | 40 | 3.339 | 108.16 | 3.3% | 25 s |
+| $2.5 \times 10^{-4}$ | 80 | 3.394 | 111.58 | 1.7% | 47 s |
+| $1.25 \times 10^{-4}$ | 160 | 3.423 | 113.36 | 0.8% | 93 s |
+| Richardson extrapolation | -- | 3.451 | 115.14 | -- | -- |
+
+The observed order of convergence in the peak current, taken from each triple of successive halvings, is 0.75,
+0.93, 0.95 and 0.96 — converging on the expected 1. Errors above are measured against the Richardson
+extrapolation to $\Delta t \rightarrow 0$ from the two finest steps, which assumes that first order; pass
+`--order` to assume another. The shipped $\Delta t = 1.25 \times 10^{-4}$ s is the coarsest that keeps the peak
+current within 1% of the limit, at around 90 seconds. Adding `Executioner/dt=0.001` on the command line finishes
+in about 13 seconds at the cost of roughly 6% in the peak.
+
+Spatial error is smaller and does not drive the choice of timestep. The same script runs the mesh study, at a
+fixed $\Delta t$:
+
+```bash
+./run_convergence_study.py --study mesh --levels 2 --exe /path/to/app-opt
+```
+
+| Refinements | Elements | Peak current (kA) | Peak power (W) | Runtime |
+| :- | -: | -: | -: | -: |
+| 0 | 26760 | 3.232 | 101.68 | 13 s |
+| 1 | 214080 | 3.244 | 102.36 | 109 s |
+| Richardson extrapolation | -- | 3.257 | 103.05 | -- |
+
+One uniform refinement moves the peak current by 0.37% for eight times the element count, and a first-order
+extrapolation from those two levels puts the supplied mesh about 0.8% short of the spatial limit — the same
+ballpark as the timestep error at the shipped $\Delta t$, and in the same direction. Two levels fix a magnitude
+but not an order; a third would be needed to establish that, and at 64 times the base element count it is a much
+larger job than anything else here.
+
+The script refines both apps together. That matters: `MultiAppMFEMCopyTransfer` copies degrees of freedom
+directly, so a run that refined only the main app would fail rather than quietly give a wrong answer.
 
 ## References id=references
 
