@@ -109,7 +109,7 @@ def plot(times, totals, output):
         zorder=3,
     )
     ax.annotate(
-        f"{peak_a:,.0f} A at {peak_t:.1f} ms",
+        f"{peak_a / 1e3:.2f} kA at {peak_t:.1f} ms",
         xy=(peak_t, peak_a),
         xytext=(10, 8),
         textcoords="offset points",
@@ -118,7 +118,7 @@ def plot(times, totals, output):
     )
 
     ax.set_xlabel("Time (ms)", color=TEXT_SECONDARY, fontsize=10)
-    ax.set_ylabel("Current (A)", color=TEXT_SECONDARY, fontsize=10)
+    ax.set_ylabel("Current (kA)", color=TEXT_SECONDARY, fontsize=10)
     ax.set_title(
         "Total current circulating around the hole in the FELIX brick",
         color=TEXT_PRIMARY,
@@ -127,7 +127,7 @@ def plot(times, totals, output):
         pad=12,
     )
 
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1e3:,.1f}"))
     ax.xaxis.set_major_locator(MultipleLocator(5))
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
     ax.tick_params(colors=TEXT_SECONDARY, labelsize=9, length=0)
