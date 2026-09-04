@@ -25,6 +25,12 @@ jobs:
       PRCOMMITSHA: ${{ github.event.pull_request.head.sha }}
       PRREPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       MOOSE_CONTAINER: oras://ghcr.io/idaholab/apptainer/moose-openmpi-x86_64:2026.08.12-167ee97
+      # Where MOOSE was built when the container was assembled. Every object in
+      # the syntax dump records its own .C file under this path, and MooseDocs
+      # discards any object whose source file is missing, so the source tree has
+      # to be mounted here. If a container bump moves it, the build log names the
+      # new path ("The supplied 'source' file does not exist: ...").
+      MOOSE_BUILD_DIR: /root/build/moose
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,10 +40,6 @@ jobs:
           apptainer-version: 1.3.6
       - name: Pull MOOSE apptainer container
         run: apptainer build moose-openmpi.sif "$MOOSE_CONTAINER"
-      - name: Create apptainer instance
-        run: apptainer instance start moose-openmpi.sif moose_instance
-      - name: Checkout Canary
-        run: apptainer exec instance://moose_instance bash -c "git clone https://github.com/${PRREPOSITORY:-$GITHUB_REPOSITORY}.git && cd canary && git checkout ${PRCOMMITSHA:-$GITHUB_SHA}"
       # The container ships an *installed* MOOSE (/opt/moose/{bin,include,lib,
       # share}), which carries no framework/doc content, and MooseDocs runs
       # 'git ls-files' on MOOSE_DIR when it is imported. So the docs build needs
@@ -62,14 +64,20 @@ jobs:
       # the same config serve both CI and a local source checkout.
       - name: Link MOOSE executable
         run: ln -s /opt/moose/bin/moose_test-opt moose/test/moose_test-opt
+      - name: Create apptainer instance
+        run: |
+          apptainer instance start \
+            --bind "$PWD/moose:$MOOSE_BUILD_DIR" \
+            moose-openmpi.sif moose_instance
+      - name: Checkout Canary
+        run: apptainer exec instance://moose_instance bash -c "git clone https://github.com/${PRREPOSITORY:-$GITHUB_REPOSITORY}.git && cd canary && git checkout ${PRCOMMITSHA:-$GITHUB_SHA}"
       - name: Build documentation
         run: |
           apptainer exec instance://moose_instance bash -c '
             set -e
             site="$PWD/site"
-            moose="$PWD/moose"
             cd canary/doc
-            export MOOSE_DIR="$moose"
+            export MOOSE_DIR='"$MOOSE_BUILD_DIR"'
             ./moosedocs.py build --destination "$site"'
       - name: Close apptainer instance
         run: apptainer instance stop moose_instance
