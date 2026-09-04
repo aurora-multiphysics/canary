@@ -1,0 +1,17 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [team4]
+    type = 'CSVDiff'
+    input = 'team4_induced_field.i'
+    csvdiff = 'OutputData/TEAM4CSV.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    max_parallel = 1
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 4, computing the eddy currents induced in a hollow '
+                  'conducting brick by a decaying uniform background field, using a coupled H(curl) '
+                  'magnetodynamic and scalar potential solve.'
+  []
+[]
