@@ -34,10 +34,11 @@ around it. The supplied mesh has 26760 tetrahedra.
 Two blocks are defined, `Brick` for the conductor and `Vacuum` for the surrounding free space. The sidesets are
 named for the role they play:
 
-- `x_symmetry`, `y_symmetry`, `z_symmetry` — the three symmetry planes
-- `x_high`, `y_high`, `z_high` — the outer faces of the free space box
-- `semi_xsection_in` — the cut through the brick wall on the $y = 0$ plane, between the hole and the outer face
-- `semi_xsection_out` — the corresponding cut on the $x = 0$ plane
+- `x_symmetry`, `y_symmetry`, `z_symmetry` (ids 4, 3, 2) — the three symmetry planes
+- `x_high`, `y_high`, `z_high` (ids 6, 5, 1) — the outer faces of the free space box
+- `semi_xsection_in` (id 7) — the cut through the brick wall on the $y = 0$ plane, between the hole and the
+  outer face
+- `semi_xsection_out` (id 8) — the corresponding cut on the $x = 0$ plane
 
 The two `semi_xsection` sidesets are where the circulating current is measured. Each spans only half the brick
 thickness, because the octant is cut at $z = 0$, so the current through a full cross-section of the brick is
@@ -97,6 +98,19 @@ plane.
 
 !listing canary/test/tests/electromagnetics/team/problem_4/team4_induced_field.i
 
+## Files id=files
+
+| File | Role |
+| :- | :- |
+| `team4_induced_field.i` | Main app: the transient eddy current solve. This is the input to run. |
+| `team4_external_source_field.i` | Sub-app: the applied background field. Launched automatically. |
+| `team4_symmetrized.e` | Octant mesh, 26760 tetrahedra. |
+| `plot_team4_current.py` | Draws the current history below from the postprocessor CSV. |
+| `tests` | Test harness specification. |
+| `gold/` | Reference postprocessor output. |
+
+All of them live in `test/tests/electromagnetics/team/problem_4`.
+
 ## Running id=running
 
 The main app launches the sub-app itself, so only one input needs to be given:
@@ -115,6 +129,13 @@ Results are written to `OutputData/`. `TEAM4CSV.csv` holds the postprocessor tim
 ParaView collection containing `induced_h_field`, `external_h_field` and `j_field`. The applied field has no
 output of its own; it is transferred into the main app and written out from there.
 
+Each field snapshot is around 18 MB, so the ParaView collection is written only every fortieth step, giving five
+across the 20 ms. The postprocessor histories keep the full time resolution. Drop `time_step_interval` from the
+output block to get every step.
+
+The run takes about 90 seconds. Adding `Executioner/dt=0.001` on the command line finishes in around 12 seconds,
+at the cost of roughly 6% in the peak current — see [Convergence](#convergence).
+
 ## Results id=results
 
 Three postprocessors are reported at every step: `OhmicHeating`, the power
@@ -126,6 +147,24 @@ whatever enters through one cross-section must leave through the other: the two 
 differ in sign. They match to about 1 part in $10^5$ throughout the run.
 
 The current rises from zero, peaks at 10.9 ms and then decays away with the applied field.
+
+!media media/team4_current.png
+       id=current-history
+       caption=Total current circulating around the hole, for a full cross-section of the brick. The eddy current
+               lags the applied field: it peaks at 10.9 ms, well after the field has begun to collapse, and then
+               decays with it.
+       style=width:80%;margin-left:auto;margin-right:auto;
+
+The figure is produced by `plot_team4_current.py`, which reads the postprocessor CSV and doubles the reported
+limb current to span the full brick thickness. Regenerate it after a run with:
+
+```bash
+cd test/tests/electromagnetics/team/problem_4
+./plot_team4_current.py
+```
+
+It needs only `matplotlib`, and writes `doc/content/media/team4_current.png` by default. It also prints the worst
+disagreement between the two limb currents over the run, which is the consistency check described above.
 
 | Quantity | Modelled octant | Whole brick |
 | :- | :- | :- |
