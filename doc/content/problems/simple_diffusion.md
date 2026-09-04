@@ -7,7 +7,7 @@ variable, [DirichletBC](https://mooseframework.inl.gov/source/bcs/DirichletBC.ht
 and `right` boundaries, and a
 [Steady](https://mooseframework.inl.gov/source/executioners/Steady.html) executioner.
 
-!listing test/tests/kernels/simple_diffusion/simple_diffusion.i
+!listing canary/test/tests/kernels/simple_diffusion/simple_diffusion.i
 
 ## Kernel Parameters id=parameters
 
