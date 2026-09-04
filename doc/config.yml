@@ -27,7 +27,10 @@ Extensions:
             Problems: problems/index.md
     MooseDocs.extensions.appsyntax:
         # Canary deliberately has no executable of its own; the syntax dump is
-        # taken from the moose_test application already built in MOOSE_DIR.
+        # taken from the moose_test application already built in MOOSE_DIR. In
+        # CI, where MOOSE is installed rather than built from source, the
+        # documentation workflow links the container's prebuilt binary into
+        # ${MOOSE_DIR}/test so that this path works there too.
         executable: ${MOOSE_DIR}/test
         app_name: moose_test
         remove: !include ${MOOSE_DIR}/framework/doc/remove.yml
