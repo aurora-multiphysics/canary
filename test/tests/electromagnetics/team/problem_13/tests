@@ -1,0 +1,17 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [TEAM_Problem_13]
+    type = 'CSVDiff'
+    input = 'team13.i'
+    csvdiff = 'OutputData/TEAM13CSV.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 13, computing the flux density in the '
+                  'saturating steel of a coil-driven magnetic circuit, using a non-linear H(curl) '
+                  'magnetostatic solve whose reluctivity follows the B-H curve given by the '
+                  'benchmark.'
+  []
+[]
