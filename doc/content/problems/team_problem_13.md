@@ -107,20 +107,47 @@ the denominator instead and $\nu$ comes out as zero rather than 6400 m/H whereve
 leaves the steel with no reluctivity at all on the first Newton iteration and the solve never recovers.
 
 Because $H(B)$ is monotone, $\nu + B\,\partial\nu/\partial B = H'(B) > 0$, so the Jacobian stays positive
-definite even where $\nu$ is falling, and the solve converges quadratically - nine Newton iterations from a
+definite even where $\nu$ is falling, and the solve converges quadratically - ten Newton iterations from a
 zero initial guess.
 
 ### The Coil Current id=coil-current
 
-The coil current is written down analytically rather than solved for. With $d(x,y)$ the distance from the
-square core the corner arcs are centred on,
+The benchmark's coil is a winding carrying a uniform ampere-turn density. With $d(x,y)$ the distance from
+the square core the corner arcs are centred on, that current is
 
 !equation
-\vec{J}_s = \frac{NI}{A}\, \hat{z} \times \nabla d,
+\vec{J}_\text{applied} = \frac{NI}{A}\, \hat{z} \times \nabla d,
 
-which is divergence free by construction, tangential to the coil surface, and of magnitude $NI/A$ everywhere
-in the winding, $A$ being the 25 mm by 100 mm cross-section. The half model contains half of the coil, and
-its mirror image supplies the other half, so the current density is the same as in the full problem.
+of magnitude $NI/A$ everywhere in the winding, $A$ being the 25 mm by 100 mm cross-section. The half model
+holds half the coil and its mirror image supplies the other half, so the current density is the same as in
+the full problem.
+
+Writing that down is not the end of it. The curl-curl operator has every gradient in its null space, so its
+right hand side has to be orthogonal to every discrete gradient, and the projection of $\vec{J}_\text{applied}$
+onto the mesh is not: the meshed coil boundary is faceted, so a little current leaks across it. The
+sub-app `team13_coil_source.i` takes that leak back out. It solves, over the whole mesh,
+
+!equation
+\left( \nabla\phi, \nabla\psi \right) = \left( \vec{J}_\text{applied}, \nabla\psi \right)_\text{coil}
+\qquad \text{for all } \psi,
+
+so that the current the main app uses, $\vec{J}_\text{applied}$ over the coil minus $\nabla\phi$ over the
+whole domain, satisfies $(\vec{J}, \nabla\psi) = 0$ for every $\psi$ by construction. This is a Helmholtz
+projection - the smallest correction that makes the source discretely divergence free - so the current stays
+as close to the specified uniform density as it can. Solving a conduction problem in the coil instead, the
+way an open coil source does, would drive the current to the inside of the bends and stop representing a
+winding.
+
+$\phi$ is pinned on `far_field`, which is not only to make that solve non-singular: it matches the main
+problem, whose tangential condition on the same boundary leaves exactly the gradients of potentials constant
+there in its null space. The two pieces reach the main app separately, as `applied_current` and
+`correction_potential`, because the first is integrated over the coil alone and the second over the whole
+domain; a single combined field would have to carry the coil's sharp edge, which an $H(\text{curl})$ field
+cannot.
+
+The current does not depend on the solution, so the sub-app runs once, at `INITIAL`.
+
+!listing canary/test/tests/electromagnetics/team/problem_13/team13_coil_source.i
 
 ### Boundary Conditions id=boundary-conditions
 
@@ -129,19 +156,50 @@ the field is normal to the symmetry plane. That is the natural condition of this
 $\vec{n} \times \vec{H} = 0$, so the plane is left free and carries no constraint at all. The far-field faces
 carry $\vec{n} \times \vec{A} = 0$, which is $\vec{B} \cdot \vec{n} = 0$, holding the flux inside the box.
 
-### Regularisation id=regularisation
+### Removing the null space id=null-space
 
-The curl-curl operator has every gradient in its null space. The exact problem is still solvable because the
-coil current is divergence free, but the meshed coil boundary is faceted and the projected current leaks a
-little across it, which puts the discrete right hand side slightly outside the range of the operator; the
-iteration then diverges. A small mass term $\varepsilon(\vec{A}, \vec{A}')$ removes the null space instead of
-gauging the problem. At $\varepsilon = 10^2$ it is around six orders of magnitude below the curl-curl term at
-the scale of this model and does not measurably perturb $\vec{B}$: the reported flux densities are unchanged
-to four decimal places over $1 \le \varepsilon \le 10^4$.
+A compatible right hand side makes the problem solvable, but $\vec{A}$ is still only determined up to a
+gradient, and the Newton iterates wander along that null space until the curl is lost to cancellation. A
+small mass term $\varepsilon(\vec{A}, \vec{A}')$ removes it. At $\varepsilon = 10^2$ it is around six orders
+of magnitude below the curl-curl term at the scale of this model and does not measurably perturb $\vec{B}$:
+the reported flux densities are unchanged to four decimal places over $1 \le \varepsilon \le 10^4$.
 
 With the null space gone the system is no longer singular, and `MFEMHypreAMS` must be told so. Leaving
 `singular = true` set costs AMS most of its effectiveness here - the inner solves stop converging, the Newton
 steps become inaccurate, and the non-linear iteration stalls at a few percent residual instead of converging.
+
+That the source really is divergence free shows up in $\vec{A}$. A mass term of this kind absorbs whatever
+part of the right hand side lies in the null space, and turns it into a gradient of size proportional to
+$1/\varepsilon$. With the corrected source there is nothing to absorb, and $\int|\vec{A}|^2$ comes out at
+$2.9096 \times 10^{-9}$, $2.9095 \times 10^{-9}$ and $2.9083 \times 10^{-9}$ at $\varepsilon = 10^2$, $10^3$
+and $10^4$ - the same number. With the analytic current projected straight onto the mesh, the same three runs
+gave $3.2674 \times 10^{-1}$, $3.2674 \times 10^{-3}$ and $3.2677 \times 10^{-5}$, exactly the
+$1/\varepsilon^2$ of a right hand side that is not compatible. Correcting the source moved the reported flux
+densities by about 0.15%.
+
+#### Other ways to remove the null space id=null-space-alternatives
+
+Two others were tried, both on the shipped mesh and both before the source was corrected, so the numbers
+below go with the analytic source.
+
+A tree-cotree gauge, `MFEMTreeCotreeGaugeEssentialConstraint`, fixes the lowest order edge degrees of freedom
+on a spanning tree of the mesh to zero, removing the null space outright rather than perturbing the operator.
+It agreed with the mass term on every reported flux density to $3 \times 10^{-4}$ and on the field energy to
+$1 \times 10^{-3}$, which was a useful check on both. It also brought $\int|\vec{A}|^2$ down from
+$3.27 \times 10^{-1}$ to $1.45 \times 10^{-7}$, which was the reason to want it at the time - with an
+incompatible source the mass term leaves a potential some 2000 times the physical field, so `a_field` is only
+meaningful through its curl. Correcting the source removes that motivation, since the mass term now leaves no
+gradient at all. The gauge costs about 1.8 times the CG work, AMS being built for the ungauged operator.
+
+`MFEMHypreAMS`'s `block` parameter, which names the subdomains where the mass term is zero and hands hypre an
+interior-node marker for them, does not work here. It is a hint to the preconditioner, not a gauge: it tells
+AMS where the operator is singular but does not remove the null space. That is enough in the eddy current
+problem it is meant for, where a conducting region carries a $\sigma\,\partial\vec{A}/\partial t$ term that
+removes the null space there and the source lives inside that conductor. Neither holds here - nothing is
+conducting - and with the whole domain marked the interior-node correction annihilates the Newton update
+itself, leaving the residual at exactly its starting value before it blows up. Confining the mass term to the
+steel and marking only the free space fails the same way, and adding the marker on top of a working mass term
+changes nothing measurable.
 
 !listing canary/test/tests/electromagnetics/team/problem_13/team13.i
 
@@ -150,6 +208,7 @@ steps become inaccurate, and the non-linear iteration stalls at a few percent re
 | File | Role |
 | :- | :- |
 | `team13.i` | The magnetostatic solve. This is the input to run. |
+| `team13_coil_source.i` | Sub-app: the divergence-free coil current. Launched automatically. |
 | `team13.e` | The mesh. |
 | `team13_mesh.py` | Builds `team13.e` with gmsh. |
 | `bh_curve.py` | Turns the benchmark B-H curve into the expressions in `team13.i`. |
@@ -160,6 +219,8 @@ steps become inaccurate, and the non-linear iteration stalls at a few percent re
 All of them live in `test/tests/electromagnetics/team/problem_13`.
 
 ## Running id=running
+
+The main app launches the coil source sub-app itself, so only one input needs to be given:
 
 ```bash
 <path to a MOOSE app built with MFEM support> -i team13.i
@@ -197,15 +258,15 @@ measure of how tightly the experiment pins the answer.
 
 | Position | Section | Computed (T) | Measured, $G = 0.52$ mm | Measured, $G = 0.47$ mm |
 | :- | :- | -: | -: | -: |
-| 1 | plate, $z = 0$ | 1.234 | 1.333 | 1.354 |
-| 2 | plate, $z = 10$ mm | 1.223 | 1.329 | 1.339 |
-| 3 | plate, $z = 20$ mm | 1.190 | 1.286 | 1.304 |
-| 4 | plate, $z = 30$ mm | 1.134 | 1.225 | 1.245 |
-| 5 | plate, $z = 40$ mm | 1.051 | 1.129 | 1.138 |
-| 6 | plate, $z = 50$ mm | 0.940 | 0.985 | 0.982 |
-| 7 | plate, $z = 60$ mm | 0.740 | 0.655 | 0.674 |
-| 14 | flange, $x = 60$ mm | 0.763 | 0.809 | 0.819 |
-| 25 | web, $z = 0$ | 0.927 | 0.985 | 0.995 |
+| 1 | plate, $z = 0$ | 1.236 | 1.333 | 1.354 |
+| 2 | plate, $z = 10$ mm | 1.225 | 1.329 | 1.339 |
+| 3 | plate, $z = 20$ mm | 1.192 | 1.286 | 1.304 |
+| 4 | plate, $z = 30$ mm | 1.136 | 1.225 | 1.245 |
+| 5 | plate, $z = 40$ mm | 1.053 | 1.129 | 1.138 |
+| 6 | plate, $z = 50$ mm | 0.941 | 0.985 | 0.982 |
+| 7 | plate, $z = 60$ mm | 0.741 | 0.655 | 0.674 |
+| 14 | flange, $x = 60$ mm | 0.765 | 0.809 | 0.819 |
+| 25 | web, $z = 0$ | 0.929 | 0.985 | 0.995 |
 
 !media media/team13_flux.png
        id=flux-profile
