@@ -53,12 +53,22 @@ MEASURE_Z = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
 # plane, and the highest runs to the top of the plate rather than to 65 mm.
 PLATE_CUTS = [5.0, 15.0, 25.0, 35.0, 45.0, 55.0]
 
-# Two more measurement blocks, cut out of the +x channel: the foot of the web,
-# centred on the symmetry plane, and a band across the middle of the top flange.
-# These are positions 25 and 14 of Table 1.  The other channel is the mirror of
-# this one, so it carries no measurement blocks of its own.
-WEB_FOOT_Z = 5.0     # web block spans 0 to this, i.e. position 25 at z = 0
-FLANGE_MID_X = (55.0, 65.0)  # flange block in x, i.e. position 14 at x = 60
+# Positions 8 to 18 of Table 1: stations along the top flange of the +x channel,
+# each reported over the full width 15 <= y <= 65 and thickness 60 <= z <= 63.2.
+FLANGE_X = [2.1, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 80.0, 100.0, 110.0, 122.1]
+
+# Positions 19 to 25: stations down the web, over 122.1 <= x <= 125.3 and the same
+# width in y.
+WEB_Z = [60.0, 50.0, 40.0, 30.0, 20.0, 10.0, 0.0]
+
+# Those are sections rather than volumes, so each is reported as the average over
+# a band of steel centred on it, carved out of the channel.  The band is narrow
+# because the field changes quickly along the flange near the plate.  Where a
+# station sits at the end of its part the band is clipped and so one-sided: that
+# is x = 2.1 and x = 122.1 on the flange and z = 60 on the web.  At z = 0 the
+# clipped half-band is still centred, the rest of it lying below the symmetry
+# plane.  The other channel is the mirror of this one and carries no blocks.
+MEASURE_BAND = 5.0
 
 MM = 1.0e-3
 
@@ -96,12 +106,20 @@ def build(args):
         occ.addBox(-CH_X1, -CH_Y1, 0.0, CH_X1 - CH_WEB_X0, CH_Y1 - CH_Y0, CH_Z1),
     ]
     # Carved back out of the channel below; each lies wholly inside the steel.
-    measure = [
-        occ.addBox(CH_WEB_X0, CH_Y0, 0.0,
-                   CH_X1 - CH_WEB_X0, CH_Y1 - CH_Y0, WEB_FOOT_Z),
-        occ.addBox(FLANGE_MID_X[0], CH_Y0, CH_Z0,
-                   FLANGE_MID_X[1] - FLANGE_MID_X[0], CH_Y1 - CH_Y0, CH_Z1 - CH_Z0),
-    ]
+    def band(lo, hi, centre):
+        return max(lo, centre - MEASURE_BAND / 2), min(hi, centre + MEASURE_BAND / 2)
+
+    measure, measure_names = [], []
+    for x in FLANGE_X:
+        x0, x1 = band(CH_X0, CH_WEB_X0, x)
+        measure.append(
+            occ.addBox(x0, CH_Y0, CH_Z0, x1 - x0, CH_Y1 - CH_Y0, CH_Z1 - CH_Z0))
+        measure_names.append("FlangeX%03d" % round(x))
+    for z in WEB_Z:
+        z0, z1 = band(0.0, CH_Z0, z)
+        measure.append(
+            occ.addBox(CH_WEB_X0, CH_Y0, z0, CH_X1 - CH_WEB_X0, CH_Y1 - CH_Y0, z1 - z0))
+        measure_names.append("WebZ%03d" % round(z))
 
     # -- the coil -----------------------------------------------------------
     # A rounded rectangular ring: a filleted box with a smaller filleted box cut
@@ -152,9 +170,8 @@ def build(args):
 
     slab_tags = [sorted(pieces[1 + i]) for i in range(len(plate))]
     named = [(f"PlateZ{int(MEASURE_Z[i]):03d}", t) for i, t in enumerate(slab_tags)]
-    named += [("WebZ000", sorted(measure_tags[0])),
-              ("FlangeX060", sorted(measure_tags[1])),
-              ("Channel", sorted(channel_tags)), ("Coil", sorted(coil_tags)),
+    named += [(n, sorted(t)) for n, t in zip(measure_names, measure_tags)]
+    named += [("Channel", sorted(channel_tags)), ("Coil", sorted(coil_tags)),
               ("Air", sorted(air_tags))]
     for name, tags in named:
         if not tags:
