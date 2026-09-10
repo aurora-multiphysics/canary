@@ -32,6 +32,14 @@
 
 ampere_turns = 1000 # AT; the benchmark also specifies 3000 AT
 
+# Order of the H(curl) space the vector potential lives in. The scalar space takes
+# the same order, since its gradients have to lie in the H(curl) one for the coil
+# source and the null space to line up. B is a curl and so drops an order, which is
+# what flux_order is for: the H(div) and L2 spaces carrying the derived fields.
+# FIRST/CONSTANT and SECOND/FIRST are the two pairings that make sense.
+fe_order = FIRST
+flux_order = CONSTANT
+
 # Every measurement block is steel and has to appear here: the reluctivity and the
 # non-linear curl-curl kernel are applied to steel_blocks, and a block left out of
 # it gets no curl-curl term at all, which makes the field there diverge.
@@ -103,22 +111,22 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
   [HCurlFESpace]
     type = MFEMVectorFESpace
     fec_type = ND
-    fec_order = FIRST
+    fec_order = ${fe_order}
   []
   [H1FESpace]
     type = MFEMScalarFESpace
     fec_type = H1
-    fec_order = FIRST
+    fec_order = ${fe_order}
   []
   [HDivFESpace]
     type = MFEMVectorFESpace
     fec_type = RT
-    fec_order = CONSTANT
+    fec_order = ${flux_order}
   []
   [L2FESpace]
     type = MFEMScalarFESpace
     fec_type = L2
-    fec_order = CONSTANT
+    fec_order = ${flux_order}
   []
 []
 
@@ -279,6 +287,13 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
     abs_tol = 1e-8
     rel_tol = 1e-7
     print_level = 1
+    # Backtracking keeps the update from overshooting the knee of the B-H curve,
+    # where the reluctivity rises fifteenfold over a few tenths of a tesla. On this
+    # mesh at 1000 AT the full step is always accepted and this costs nothing, but
+    # without it anything that resolves the knee more sharply - a finer mesh, second
+    # order elements, or 3000 AT - stalls in a limit cycle at a relative residual of
+    # a few times 1e-3 instead of converging.
+    line_search = backtracking
   []
 []
 
@@ -287,7 +302,7 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
   [coil_source]
     type = FullSolveMultiApp
     input_files = team13_coil_source.i
-    cli_args = 'ampere_turns=${ampere_turns}'
+    cli_args = 'ampere_turns=${ampere_turns};fe_order=${fe_order}'
     execute_on = INITIAL
   []
 []

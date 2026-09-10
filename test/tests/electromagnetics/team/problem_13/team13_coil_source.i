@@ -35,6 +35,7 @@
 # exactly the gradients of potentials constant there in its null space.
 
 ampere_turns = 1000 # AT; overridden by the main app
+fe_order = FIRST # likewise; it has to match the main app's H(curl) space
 
 coil_core = 0.05 # m, half-width of the square the corner arcs are centred on
 coil_area = '${fparse 0.025 * 0.100}' # m2
@@ -53,12 +54,12 @@ current_density = '${fparse ampere_turns / coil_area}' # A/m2
   [H1FESpace]
     type = MFEMScalarFESpace
     fec_type = H1
-    fec_order = FIRST
+    fec_order = ${fe_order}
   []
   [HCurlFESpace]
     type = MFEMVectorFESpace
     fec_type = ND
-    fec_order = FIRST
+    fec_order = ${fe_order}
   []
 []
 
