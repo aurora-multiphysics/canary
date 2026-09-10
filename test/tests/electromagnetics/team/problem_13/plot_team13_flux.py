@@ -8,8 +8,9 @@ embedded in doc/content/problems/team_problem_13.md:
     team13_positions.png  every one of the 25 sections of Table 1
 
 Both show the 1000 AT case, which is the one the problem statement publishes
-measurements for. The benchmark's other excitation, 3000 AT, has no measured column
-to be read against, so it is left off unless --csv-3000 asks for it.
+measurements for, and the second order Nedelec solution of it alongside. The
+benchmark's other excitation, 3000 AT, has no measured column to be read against,
+so it is left off unless --csv-3000 asks for it.
 
 The measurements were taken on two specimens whose plate-to-channel gap came out at
 0.52 mm and 0.47 mm against a nominal 0.5 mm, and that gap carries most of the
@@ -45,8 +46,9 @@ TEXT_PRIMARY = "#0b0b0b"
 TEXT_SECONDARY = "#52514e"
 GRID = "#e6e5e1"
 MEASURED = "#e8710a"
-COMPUTED = "#2a78d6"      # 1000 AT
-COMPUTED_3000 = "#7b4fd1"  # 3000 AT
+COMPUTED = "#2a78d6"        # the base case: 1000 AT, first order
+COMPUTED_SECOND = "#7b4fd1"  # second order Nedelec
+COMPUTED_3000 = "#12866e"    # 3000 AT
 
 # Table 1 of the problem statement: the 25 sections, in the order it numbers them,
 # with the postprocessor reporting each and the flux density measured on the two
@@ -117,12 +119,13 @@ def read_values(path, required=True):
 
 def _suffix(cases):
     """Name the excitation in the title when there is only one to name."""
-    return f", at {cases[0][0]} AT" if len(cases) == 1 else ""
+    amps = {c[0] for c in cases}
+    return f", at {amps.pop()} AT" if len(amps) == 1 else ""
 
 
 def _top(cases):
     """A common y limit for both figures, so they can be read against each other."""
-    peak = max(max(v for k, v in values.items() if k != "time") for _, values, _, _ in cases)
+    peak = max(max(v for k, v in values.items() if k != "time") for _, _, values, _, _ in cases)
     peak = max(peak, max(max(p[4], p[5]) for p in POSITIONS))
     return 0.1 * (int(peak / 0.1) + 3)
 
@@ -143,9 +146,9 @@ def _style(ax):
 def _series(ax, xs, rows, cases, label=False):
     """Draw the measured band and one computed curve per excitation.
 
-    cases is a list of (ampere turns, values, colour, marker); labels are attached
-    only on the first call so that a figure split into several runs of positions
-    still gets one legend entry per series.
+    cases is a list of (ampere turns, legend label, values, colour, marker); labels
+    are attached only on the first call so that a figure split into several runs of
+    positions still gets one legend entry per series.
     """
     lower = [min(r[4], r[5]) for r in rows]
     upper = [max(r[4], r[5]) for r in rows]
@@ -153,10 +156,10 @@ def _series(ax, xs, rows, cases, label=False):
     ax.plot(xs, [0.5 * (r[4] + r[5]) for r in rows], color=MEASURED, linewidth=2.0,
             marker="o", markersize=7, markeredgecolor=SURFACE, markeredgewidth=2.0,
             label="Measured, 1000 AT (band spans the two specimens)" if label else None)
-    for amp, values, colour, marker in cases:
+    for _, series_label, values, colour, marker in cases:
         ax.plot(xs, [values[r[1]] for r in rows], color=colour, linewidth=2.0,
                 marker=marker, markersize=7, markeredgecolor=SURFACE, markeredgewidth=2.0,
-                label=f"Computed, {amp} AT" if label else None)
+                label=series_label if label else None)
 
 
 def plot_plate(cases, output):
@@ -219,7 +222,7 @@ def plot_positions(cases, output):
     ]
     for number, note, xytext in notes:
         row = next(p for p in POSITIONS if p[0] == number)
-        ax.annotate(note, xy=(number, cases[0][1][row[1]]), xytext=xytext,
+        ax.annotate(note, xy=(number, cases[0][2][row[1]]), xytext=xytext,
                     textcoords="data", color=TEXT_SECONDARY, fontsize=8,
                     ha="center", va="top",
                     arrowprops=dict(arrowstyle="-", color=GRID, linewidth=1.2,
@@ -245,21 +248,22 @@ def plot_positions(cases, output):
 
 def report(cases):
     header = "  %-4s %-8s %-9s" % ("No.", "part", "position")
-    for amp, _, _, _ in cases:
-        header += " %11s" % f"{amp} AT"
+    for _, series_label, _, _, _ in cases:
+        header += " %13s" % series_label.replace("Computed, ", "").replace("Computed", "computed")
     header += " %9s %9s %8s" % ("G=0.52", "G=0.47", "error")
     print(header)
     worst = (0.0, None)
     for number, key, part, where, g52, g47 in POSITIONS:
         mean = 0.5 * (g52 + g47)
-        err = 100.0 * (cases[0][1][key] / mean - 1.0)
+        err = 100.0 * (cases[0][2][key] / mean - 1.0)
         if abs(err) > abs(worst[0]):
             worst = (err, number)
         line = "  %-4d %-8s %-9s" % (number, part, f"{where:g} mm")
-        for _, values, _, _ in cases:
-            line += " %11.4f" % values[key]
+        for _, _, values, _, _ in cases:
+            line += " %13.4f" % values[key]
         print(line + " %9.3f %9.3f %7.1f%%" % (g52, g47, err))
-    print("  at 1000 AT, worst departure from the measured mean: %+.1f%% at position %d" % worst)
+    print("  %s: worst departure from the measured mean %+.1f%% at position %d"
+          % (cases[0][1], worst[0], worst[1]))
 
 
 def main():
@@ -268,14 +272,26 @@ def main():
                         help=f"1000 AT postprocessor CSV (default: {DEFAULT_CSV})")
     parser.add_argument("--csv-3000", type=Path, default=None,
                         help="3000 AT postprocessor CSV; drawn alongside 1000 AT when given")
+    parser.add_argument("--csv-second-order", type=Path, default=None,
+                        help="second order Nedelec postprocessor CSV; drawn alongside when given")
     parser.add_argument("--outdir", type=Path, default=DEFAULT_OUTDIR,
                         help=f"directory for the figures (default: {DEFAULT_OUTDIR})")
     parser.add_argument("--no-plot", action="store_true", help="only print the comparison")
     args = parser.parse_args()
 
-    cases = [(1000, read_values(args.csv), COMPUTED, "s")]
-    if args.csv_3000 is not None:
-        cases.append((3000, read_values(args.csv_3000), COMPUTED_3000, "^"))
+    second = read_values(args.csv_second_order) if args.csv_second_order else None
+    at3000 = read_values(args.csv_3000) if args.csv_3000 else None
+    # Name the base series for whatever it is being contrasted with.
+    base = "Computed"
+    if second is not None:
+        base = "Computed, first order"
+    elif at3000 is not None:
+        base = "Computed, 1000 AT"
+    cases = [(1000, base, read_values(args.csv), COMPUTED, "s")]
+    if second is not None:
+        cases.append((1000, "Computed, second order", second, COMPUTED_SECOND, "^"))
+    if at3000 is not None:
+        cases.append((3000, "Computed, 3000 AT", at3000, COMPUTED_3000, "D"))
 
     if not args.no_plot:
         plot_plate(cases, args.outdir / "team13_flux.png")

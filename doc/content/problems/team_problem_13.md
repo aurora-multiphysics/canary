@@ -207,6 +207,31 @@ itself, leaving the residual at exactly its starting value before it blows up. C
 steel and marking only the free space fails the same way, and adding the marker on top of a working mass term
 changes nothing measurable.
 
+### Newton damping id=damping
+
+The reluctivity rises fifteenfold between $B = 1.5$ T and $1.8$ T, and an undamped Newton update aimed at an
+element sitting in that knee overshoots to the far side of it. The next update brings it back, and the
+iteration settles into a limit cycle rather than converging. It shows up whenever the discretisation resolves
+the knee more sharply, or the steel is driven further into it:
+
+| Case | Undamped | With backtracking |
+| :- | -: | -: |
+| 1000 AT, first order | 10 iterations, $1.1 \times 10^{-8}$ | unchanged: the full step is always accepted |
+| 3000 AT, first order | 50 iterations, stalls at $3 \times 10^{-3}$ | 11 iterations, $7.6 \times 10^{-9}$ |
+| 1000 AT, second order | 50 iterations, stalls at $8.8 \times 10^{-3}$ | 10 iterations, $3.2 \times 10^{-10}$ |
+
+`line_search = backtracking` on `MFEMNewtonNonlinearSolver` shortens the update until the residual norm meets
+an Armijo sufficient-decrease condition. The shipped 1000 AT first order case never needs it - the full step
+always passes, and the results are unchanged to the last digit - but the two harder cases go from not
+converging at all to converging in about the same number of iterations as the easy one. The second order case
+went from 50 iterations and 56 minutes without converging to 10 iterations and 14 minutes with.
+
+Worth knowing if the same thing shows up elsewhere: the stalled solutions were not wrong, just unconverged by
+the residual test. Every reported value in the 50-iteration second order run agreed with the converged one to
+$3.7 \times 10^{-5}$, and the 3000 AT run agreed to $2 \times 10^{-6}$ between iterations 20 and 50. The
+field settles long before the residual does, because what is chattering is a handful of elements whose
+reluctivity flips either side of the knee without moving the flux.
+
 !listing canary/test/tests/electromagnetics/team/problem_13/team13.i
 
 ## Files id=files
@@ -260,12 +285,8 @@ The test runs the 1000 AT case. The benchmark's other excitation is a command li
 ./plot_team13_flux.py --csv-3000 OutputData/TEAM13CSV_3000AT.csv
 ```
 
-At 3000 AT the non-linear solve does not meet its convergence test. It falls to a relative residual of about
-$3 \times 10^{-3}$ in a dozen iterations and then sits in a limit cycle between $2.5 \times 10^{-3}$ and
-$8 \times 10^{-3}$, which is what an undamped Newton iteration does when a handful of elements chatter across
-the knee of the B-H curve. The field itself is settled well before that: every reported value agrees to
-$2 \times 10^{-6}$ between iteration 20 and iteration 50, so the numbers above can be relied on even though
-the solver reports failure. It takes about four minutes, against one for the 1000 AT case.
+It converges in 11 Newton iterations and takes about the same time as the 1000 AT case. That is down to the
+line search; see [Newton damping](#damping) below.
 
 ## Results id=results
 
@@ -386,6 +407,31 @@ reported figure to 0.329 T. Position 7 is the same story at the top of the plate
 out into the flange: its band runs from 55 mm to the top of the plate at 63.2 mm and averages over the whole
 of that turn.
 
+### Element order id=element-order
+
+The offset above is spatial discretisation error, and raising the polynomial order removes most of it. Running
+the same mesh with second order Nedelec elements for $\vec{A}$ - `fe_order=SECOND flux_order=FIRST`, which
+also takes the H(div) and L2 spaces carrying the derived fields up an order - gives:
+
+| | First order | Second order |
+| :- | -: | -: |
+| Mean error over the 23 well-posed sections | -8.2% | **-1.6%** |
+| Range | -9.3% to -4.3% | -2.5% to +1.6% |
+| Position 7, at the turn out of the plate | -13.1% | -3.8% |
+| Degrees of freedom | 0.25M | 1.4M |
+| Run time | 1.3 min | 14 min |
+
+That is a better answer than first order reached on any mesh in the [study below](#convergence), including the
+865k element one at -3.8%, and it comes from 210k elements. It confirms what the mesh study implied: the flat
+few percent the first order results sit below the measurements is discretisation error in the gap, not
+something wrong with the model.
+
+Position 8 is the exception and moves the other way, from +25.9% to +31.7%. That is the expected sign. Its
+error is not discretisation but the band average standing in for a plane section, and a more accurate solution
+resolves the climb across that band better, so the average moves further from the value at the section itself.
+
+Second order needs the line search to converge at all; see [Newton damping](#damping).
+
 !media media/team13_flux.png
        id=flux-profile
        caption=Flux density up the centre plate at 1000 AT, positions 1 to 7 of Table 1. The computed profile
@@ -451,9 +497,9 @@ deep into saturation and take a while to walk back out.
 
 ## Notes id=notes
 
-Only the 1000 AT case is exercised by the test suite. The 3000 AT case is tabulated above but is left out of
-the test, and off the figures, because it takes four times as long, its solver does not formally converge, and
-there are no measurements to read it against; see [Running](#running).
+The test suite runs the 1000 AT first order case. The second order case is a test too, marked heavy so that it
+is only picked up by `./run_tests --heavy`, since it takes a quarter of an hour. The 3000 AT case is tabulated
+above but is not a test and is left off the figures, there being no measurements to read it against.
 
 ## References id=references
 
