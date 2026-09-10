@@ -32,8 +32,14 @@
 
 ampere_turns = 1000 # AT; the benchmark also specifies 3000 AT
 
+# Every measurement block is steel and has to appear here: the reluctivity and the
+# non-linear curl-curl kernel are applied to steel_blocks, and a block left out of
+# it gets no curl-curl term at all, which makes the field there diverge.
 plate_blocks = 'PlateZ000 PlateZ010 PlateZ020 PlateZ030 PlateZ040 PlateZ050 PlateZ060'
-steel_blocks = '${plate_blocks} WebZ000 FlangeX060 Channel'
+flange_blocks = 'FlangeX002 FlangeX010 FlangeX020 FlangeX030 FlangeX040 FlangeX050
+                 FlangeX060 FlangeX080 FlangeX100 FlangeX110 FlangeX122'
+web_blocks = 'WebZ000 WebZ010 WebZ020 WebZ030 WebZ040 WebZ050 WebZ060'
+steel_blocks = '${plate_blocks} ${flange_blocks} ${web_blocks} Channel'
 free_space_blocks = 'Air Coil'
 
 vacuum_permeability = '${fparse 4 * pi * 1e-7}' # H/m
@@ -145,6 +151,24 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
     type = MFEMVariable
     fespace = L2FESpace
   []
+  # The component of B through each measured section, which is what the benchmark's
+  # search coils actually read. Each is B.n with n the direction the flux runs in
+  # that part - down the plate, along the flange towards the plate, up the web - so
+  # all of the reported values come out positive. Averaging |B| instead counts
+  # transverse leakage that carries no flux through the section, which matters
+  # wherever the flux is turning; see the documentation.
+  [b_plate_axial]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
+  [b_flange_axial]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
+  [b_web_axial]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
 []
 
 [Kernels]
@@ -214,6 +238,24 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
     variable = b_magnitude
     coefficient = a_field_curl_mag
   []
+  [update_b_plate_axial]
+    type = MFEMInnerProductAux
+    variable = b_plate_axial
+    first_source_vec = a_field_curl
+    second_source_vec = '0 0 -1'
+  []
+  [update_b_flange_axial]
+    type = MFEMInnerProductAux
+    variable = b_flange_axial
+    first_source_vec = a_field_curl
+    second_source_vec = '-1 0 0'
+  []
+  [update_b_web_axial]
+    type = MFEMInnerProductAux
+    variable = b_web_axial
+    first_source_vec = a_field_curl
+    second_source_vec = '0 0 1'
+  []
 []
 
 [Solvers]
@@ -265,61 +307,166 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
 []
 
 [Postprocessors]
-  # Table 1 of the problem statement reports the average flux density in the
-  # steel over a set of sections. The steel is meshed so that each measured
-  # section has a block of its own centred on it, and these are the average of
-  # |B| over those blocks.
+  # Table 1 of the problem statement: the average flux density in the steel over
+  # each of 25 sections. Every section has a block of its own in the mesh, centred
+  # on it, and these are the average over that block of the component of B through
+  # the section, which is the quantity the benchmark's search coils measured. Bands
+  # 5 mm thick stand in for the plane sections the coils enclose; the bands at the
+  # ends of a part are clipped and so one-sided, which is noted in the documentation
+  # against the positions it affects.
   #
-  # Positions 1 to 7, up the centre plate. The block for z = 0 is the top half of
-  # its band, the rest lying below the symmetry plane, and the block for z = 60
-  # runs from 55 mm to the top of the plate at 63.2 mm rather than being centred.
-  [PlateB000]
+  # Positions 1 to 7, up the centre plate. Its blocks tile the plate in 10 mm
+  # slabs rather than being 5 mm bands, since the stations are 10 mm apart.
+  [PlateB000] # position 1, z = 0 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ000'
   []
-  [PlateB010]
+  [PlateB010] # position 2, z = 10 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ010'
   []
-  [PlateB020]
+  [PlateB020] # position 3, z = 20 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ020'
   []
-  [PlateB030]
+  [PlateB030] # position 4, z = 30 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ030'
   []
-  [PlateB040]
+  [PlateB040] # position 5, z = 40 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ040'
   []
-  [PlateB050]
+  [PlateB050] # position 6, z = 50 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ050'
   []
-  [PlateB060]
+  [PlateB060] # position 7, z = 60 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_plate_axial
     block = 'PlateZ060'
   []
 
-  # Position 25, the foot of the web of the channel, and position 14, halfway
-  # along its top flange.
-  [WebB000]
+  # Positions 8 to 18, along the top flange of the channel.
+  [FlangeB002] # position 8, x = 2.1 mm
     type = MFEMElementAverageValue
-    variable = b_magnitude
+    variable = b_flange_axial
+    block = 'FlangeX002'
+  []
+  [FlangeB010] # position 9, x = 10 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX010'
+  []
+  [FlangeB020] # position 10, x = 20 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX020'
+  []
+  [FlangeB030] # position 11, x = 30 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX030'
+  []
+  [FlangeB040] # position 12, x = 40 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX040'
+  []
+  [FlangeB050] # position 13, x = 50 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX050'
+  []
+  [FlangeB060] # position 14, x = 60 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX060'
+  []
+  [FlangeB080] # position 15, x = 80 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX080'
+  []
+  [FlangeB100] # position 16, x = 100 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX100'
+  []
+  [FlangeB110] # position 17, x = 110 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX110'
+  []
+  [FlangeB122] # position 18, x = 122.1 mm
+    type = MFEMElementAverageValue
+    variable = b_flange_axial
+    block = 'FlangeX122'
+  []
+
+  # Positions 19 to 25, down the web of the channel.
+  [WebB060] # position 19, z = 60 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ060'
+  []
+  [WebB050] # position 20, z = 50 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ050'
+  []
+  [WebB040] # position 21, z = 40 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ040'
+  []
+  [WebB030] # position 22, z = 30 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ030'
+  []
+  [WebB020] # position 23, z = 20 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ020'
+  []
+  [WebB010] # position 24, z = 10 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
+    block = 'WebZ010'
+  []
+  [WebB000] # position 25, z = 0 mm
+    type = MFEMElementAverageValue
+    variable = b_web_axial
     block = 'WebZ000'
   []
-  [FlangeB060]
-    type = MFEMElementAverageValue
-    variable = b_magnitude
-    block = 'FlangeX060'
+[]
+
+[VectorPostprocessors]
+  # Table 2: the flux density in the air below the flange, along the line
+  # y = 20 mm, z = 55 mm, at x = 10 to 110 mm. Positions 26 to 36.
+  [air_line]
+    type = MFEMScalarCoefficientPointValueSampler
+    coefficient = a_field_curl_mag
+    points = '0.010 0.020 0.055 0.020 0.020 0.055 0.030 0.020 0.055 0.040 0.020 0.055 0.050 0.020 0.055 0.060 0.020 0.055 0.070 0.020 0.055 0.080 0.020 0.055 0.090 0.020 0.055 0.100 0.020 0.055 0.110 0.020 0.055'
+  []
+  # Table 3: the four points recommended for comparison between methods. Points 1
+  # and 3 sit in the steel, at the corner of the flange and inside the plate, and
+  # points 2 and 4 in the gap and the plate respectively. Coordinates are the
+  # problem statement's, in metres.
+  [recommended_points]
+    type = MFEMScalarCoefficientPointValueSampler
+    coefficient = a_field_curl_mag
+    points = '0.0022 0.0151 0.0601
+              0.0020 0.0149 0.0509
+              0.0015 0.0000 0.0550
+              0.0015 0.0000 0.0250'
   []
 []
 

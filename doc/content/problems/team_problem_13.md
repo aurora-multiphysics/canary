@@ -74,11 +74,17 @@ corner arcs of a box of half-width $a$ filleted at radius $r$ are centred at $(\
 size is set by a small number of axis-aligned box fields, finest in the two 0.5 mm gaps, next finest through
 the 3.2 mm steel, and coarsening out to the truncation boundary.
 
-The blocks are named for what they are used for. `Coil` and `Air` are free space; `Channel` is the steel of
-the two channels. The rest of the steel is cut into measurement blocks, each centred on one of the sections
-where the benchmark reports a flux density: `PlateZ000` to `PlateZ060` up the centre plate, `WebZ000` at the
-foot of a web and `FlangeX060` halfway along a flange. Two sidesets are named: `symmetry`, the $z = 0$ plane,
-and `far_field`, the outer faces of the free space box.
+The blocks are named for what they are used for. `Coil` and `Air` are free space; `Channel` is what is left
+of the steel of the two channels. The rest of the steel is cut into 25 measurement blocks, one centred on
+each of the sections where Table 1 of the problem statement reports a flux density: `PlateZ000` to
+`PlateZ060` up the centre plate, `FlangeX002` to `FlangeX122` along the top flange of the $+x$ channel, and
+`WebZ000` to `WebZ060` down its web. The other channel is the mirror of that one and carries no blocks of its
+own. Two sidesets are named: `symmetry`, the $z = 0$ plane, and `far_field`, the outer faces of the free
+space box.
+
+Every one of those blocks is steel and has to be listed in the input's `steel_blocks`, since that is what the
+reluctivity and the non-linear curl-curl kernel are applied to. A block left out of it gets no curl-curl term
+at all and the field in it diverges.
 
 MFEM reads named blocks and sidesets from Exodus files only - its gmsh reader gives bare integer attributes
 - so the script runs the mesh back through MOOSE with `--mesh-only` to convert it. That step needs a MOOSE
@@ -212,7 +218,7 @@ changes nothing measurable.
 | `team13.e` | The mesh. |
 | `team13_mesh.py` | Builds `team13.e` with gmsh. |
 | `bh_curve.py` | Turns the benchmark B-H curve into the expressions in `team13.i`. |
-| `plot_team13_flux.py` | Draws the comparison below from the postprocessor CSV. |
+| `plot_team13_flux.py` | Draws both comparison figures below from the postprocessor CSV. |
 | `tests` | Test harness specification. |
 | `gold/` | Reference postprocessor output. |
 
@@ -232,8 +238,9 @@ or, from the repository root, through the test harness:
 ./run_tests --re TEAM_Problem_13
 ```
 
-Results are written to `OutputData/`. `TEAM13CSV.csv` holds the reported flux densities and `TEAM13/` holds a
-ParaView collection containing `a_field`, `b_field` and `b_magnitude`.
+Results are written to `OutputData/`. `TEAM13CSV.csv` holds the 25 section averages of Table 1,
+`TEAM13CSV_air_line_0001.csv` and `TEAM13CSV_recommended_points_0001.csv` hold Tables 2 and 3, and `TEAM13/`
+holds a ParaView collection containing `a_field`, `b_field` and `b_magnitude`.
 
 To rebuild the mesh, which needs gmsh and a MOOSE executable:
 
@@ -242,44 +249,176 @@ cd test/tests/electromagnetics/team/problem_13
 ./team13_mesh.py --exe /path/to/app-opt        # or set MOOSE_DIR
 ```
 
-`--help` lists the element size controls. To change the excitation to the benchmark's other case, add
-`ampere_turns=3000` on the command line.
+`--help` lists the element size controls.
+
+The test runs the 1000 AT case. The benchmark's other excitation is a command line argument. The figures show
+1000 AT only, that being the case there are measurements for, but the 3000 AT run can be drawn alongside:
+
+```bash
+<app> -i team13.i ampere_turns=3000 \
+      Outputs/ReportedPostprocessors/file_base=OutputData/TEAM13CSV_3000AT
+./plot_team13_flux.py --csv-3000 OutputData/TEAM13CSV_3000AT.csv
+```
+
+At 3000 AT the non-linear solve does not meet its convergence test. It falls to a relative residual of about
+$3 \times 10^{-3}$ in a dozen iterations and then sits in a limit cycle between $2.5 \times 10^{-3}$ and
+$8 \times 10^{-3}$, which is what an undamped Newton iteration does when a handful of elements chatter across
+the knee of the B-H curve. The field itself is settled well before that: every reported value agrees to
+$2 \times 10^{-6}$ between iteration 20 and iteration 50, so the numbers above can be relied on even though
+the solver reports failure. It takes about four minutes, against one for the 1000 AT case.
 
 ## Results id=results
 
-The benchmark reports the average flux density in the steel over a set of sections. Each section has a block
-of its own in the mesh, centred on it, and the reported values are the average of $\left|\vec{B}\right|$ over
-that block. The block for $z = 0$ is the top half of its band, the rest of it lying below the symmetry plane,
-and the block for $z = 60$ mm runs from 55 mm to the top of the plate rather than being centred.
+Table 1 of the problem statement reports the average flux density in the steel over 25 sections, and Tables 2
+and 3 report the flux density at points in the air and at four points recommended for comparison between
+methods. All three are reported by the input.
+
+Two choices go into reporting Table 1, and both are worth stating.
+
+The first is what to average. Table 1 is headed "average flux density $\left|\vec{B}\right|$", but the
+measurements behind it were taken with search coils wound round the steel, and a search coil reads the flux
+through the section, which is the component of $\vec{B}$ along it and not the magnitude. What is reported
+here is the component, $\vec{B} \cdot \hat{n}$ with $\hat{n}$ the direction the flux runs in that part of
+the circuit: down the plate, along the flange towards the plate, and up the web. That makes every value
+positive and directly comparable with the table. The distinction only matters where the flux is turning, but
+there it matters a great deal - see [below](#turning).
+
+The second is that a section is a plane, and an average over one is not something the postprocessors can take
+on an interior face, so each is reported as the average over a block of steel centred on it. The flange and
+web blocks are 5 mm bands. The plate blocks tile the plate in 10 mm slabs, the stations there being 10 mm
+apart. Four bands sit at the end of their part and are clipped, so they are one-sided rather than centred:
+positions 8 and 18 at the two ends of the flange, position 19 at the top of the web, and position 7 at the top
+of the plate. Position 25, at the foot of the web, is clipped at the symmetry plane but is still centred, the
+rest of its band lying below it.
+
+The benchmark asks for both of its excitations, and both are tabulated below, but it only published
+measurements at 1000 AT, so that is the only column the computed values can be checked against. The 3000 AT
+column is what the same model gives with the steel driven much further into saturation. The 1000 AT and
+3000 AT columns of Tables 1, 2 and 3 are blank in the problem statement - they are the tables participants
+were asked to fill in - and the one set of readings it does print is headed "1000 AT, measured".
+
+Of the 25 sections, Fig. 5 of the problem statement singles out three as the ones to compare against
+experiment rather than against other methods: positions 1, 12 and 25, at the foot of the plate, half way
+along the flange and at the foot of the web. It adds position 27 of Table 2, in the air, as a point where the
+flux density is high and does not change sharply. Those four are the benchmark's own choice of where a
+calculation should be judged, and the model is 8.4%, 9.3% and 8.0% low at the first three.
 
 The measurements come in two sets, taken on specimens whose gaps came out at 0.52 mm and 0.47 mm against the
 nominal 0.5 mm. The gap carries most of the reluctance of the circuit, so the spread between them is a fair
 measure of how tightly the experiment pins the answer.
 
-| Position | Section | Computed (T) | Measured, $G = 0.52$ mm | Measured, $G = 0.47$ mm |
-| :- | :- | -: | -: | -: |
-| 1 | plate, $z = 0$ | 1.236 | 1.333 | 1.354 |
-| 2 | plate, $z = 10$ mm | 1.225 | 1.329 | 1.339 |
-| 3 | plate, $z = 20$ mm | 1.192 | 1.286 | 1.304 |
-| 4 | plate, $z = 30$ mm | 1.136 | 1.225 | 1.245 |
-| 5 | plate, $z = 40$ mm | 1.053 | 1.129 | 1.138 |
-| 6 | plate, $z = 50$ mm | 0.941 | 0.985 | 0.982 |
-| 7 | plate, $z = 60$ mm | 0.741 | 0.655 | 0.674 |
-| 14 | flange, $x = 60$ mm | 0.765 | 0.809 | 0.819 |
-| 25 | web, $z = 0$ | 0.929 | 0.985 | 0.995 |
+| No. | Section | 1000 AT (T) | 3000 AT (T) | $G = 0.52$ mm | $G = 0.47$ mm | Error at 1000 AT |
+| :- | :- | -: | -: | -: | -: | -: |
+| 1 | plate, $z = 0$ | 1.231 | 1.842 | 1.333 | 1.354 | -8.4% |
+| 2 | plate, $z = 10$ mm | 1.220 | 1.834 | 1.329 | 1.339 | -8.6% |
+| 3 | plate, $z = 20$ mm | 1.187 | 1.809 | 1.286 | 1.304 | -8.3% |
+| 4 | plate, $z = 30$ mm | 1.130 | 1.759 | 1.225 | 1.245 | -8.5% |
+| 5 | plate, $z = 40$ mm | 1.044 | 1.663 | 1.129 | 1.138 | -7.9% |
+| 6 | plate, $z = 50$ mm | 0.911 | 1.466 | 0.985 | 0.982 | -7.4% |
+| 7 | plate, $z = 60$ mm | 0.578 | 0.914 | 0.655 | 0.674 | -13.1% |
+| 8 | flange, $x = 2.1$ mm | 0.329 | 0.526 | 0.259 | 0.263 | +25.9% |
+| 9 | flange, $x = 10$ mm | 0.433 | 0.727 | 0.453 | 0.451 | -4.3% |
+| 10 | flange, $x = 20$ mm | 0.515 | 0.901 | 0.554 | 0.563 | -7.8% |
+| 11 | flange, $x = 30$ mm | 0.580 | 1.041 | 0.637 | 0.641 | -9.3% |
+| 12 | flange, $x = 40$ mm | 0.637 | 1.167 | 0.698 | 0.706 | -9.3% |
+| 13 | flange, $x = 50$ mm | 0.690 | 1.283 | 0.755 | 0.763 | -9.1% |
+| 14 | flange, $x = 60$ mm | 0.740 | 1.391 | 0.809 | 0.819 | -9.1% |
+| 15 | flange, $x = 80$ mm | 0.824 | 1.559 | 0.901 | 0.907 | -8.8% |
+| 16 | flange, $x = 100$ mm | 0.869 | 1.620 | 0.945 | 0.958 | -8.7% |
+| 17 | flange, $x = 110$ mm | 0.878 | 1.619 | 0.954 | 0.968 | -8.6% |
+| 18 | flange, $x = 122.1$ mm | 0.883 | 1.604 | 0.956 | 0.968 | -8.2% |
+| 19 | web, $z = 60$ mm | 0.886 | 1.600 | 0.960 | 0.971 | -8.3% |
+| 20 | web, $z = 50$ mm | 0.890 | 1.610 | 0.965 | 0.973 | -8.2% |
+| 21 | web, $z = 40$ mm | 0.896 | 1.619 | 0.970 | 0.982 | -8.2% |
+| 22 | web, $z = 30$ mm | 0.902 | 1.629 | 0.974 | 0.985 | -7.9% |
+| 23 | web, $z = 20$ mm | 0.906 | 1.636 | 0.981 | 0.991 | -8.1% |
+| 24 | web, $z = 10$ mm | 0.909 | 1.640 | 0.984 | 0.995 | -8.1% |
+| 25 | web, $z = 0$ | 0.911 | 1.641 | 0.985 | 0.995 | -8.0% |
+
+Twenty-three of the twenty-five sit between 4% and 9% below the measurements, and flat across the whole
+circuit: the plate, the flange and the web are all short by about the same amount, which is what a single
+under-resolved reluctance looks like rather than an error local to one part. Refining the mesh moves the whole
+set up together, as the [convergence study](#convergence) below shows.
+
+!media media/team13_positions.png
+       id=all-positions
+       caption=All 25 sections of Table 1 at 1000 AT, against the position number the problem statement
+               gives them. The three runs are the three parts of the magnetic circuit and are not
+               joined to each other: position 7 is the top of the plate and position 8 the tip of the flange,
+               with the 0.5 mm
+               gap between them. The computed values track the measurements around the whole circuit and sit
+               a little below them everywhere, which is the mesh resolution in the gap rather than anything
+               local.
+       style=width:100%;margin-left:auto;margin-right:auto;
+
+### Where the flux turns id=turning
+
+The two that stand out, positions 7 and 8, are the two sections where the flux is turning rather than running
+along the part, and they are worth a note because they are also where the choice of reported quantity bites.
+
+Averaging $\left|\vec{B}\right|$ rather than the component through the section makes no difference over most
+of the circuit and a large one at those two:
+
+| Section | Average component | Average $\left|\vec{B}\right|$ | Ratio |
+| :- | -: | -: | -: |
+| plate, $z = 0$ | 1.231 | 1.231 | 1.00 |
+| plate, $z = 30$ mm | 1.130 | 1.131 | 1.00 |
+| plate, $z = 50$ mm | 0.911 | 0.939 | 1.03 |
+| plate, $z = 60$ mm | 0.578 | 0.747 | 1.29 |
+| flange, $x = 2.1$ mm | 0.329 | 0.440 | 1.34 |
+| flange, $x = 10$ mm | 0.433 | 0.484 | 1.12 |
+| flange, $x = 60$ mm | 0.740 | 0.743 | 1.00 |
+| web, $z = 0$ | 0.911 | 0.911 | 1.00 |
+
+Position 8 is the extreme case, and the reason is the geometry. The plate is 50 mm wide, centred on $y = 0$,
+and the flange is 50 mm wide starting at $y = 15$ mm, so the two face each other across the gap over only
+$15 \le y \le 25$ mm - a fifth of the flange's width. All the flux crossing the gap at the tip goes through
+that strip. Sampling across the width at $x = 2.2$ mm shows it plainly: 1.24 to 1.51 T over
+$16 \le y \le 25$ mm, saturated, falling to 0.39 T by $y = 31$ mm and to between 0.03 and 0.10 T over the
+outer half of the flange, which carries only transverse leakage. That leakage adds to an average of the
+magnitude while carrying no flux through the section at all, which is why reporting the magnitude there
+overstated the section by two thirds.
+
+What is left at position 8 is the band average. Over the section at $x = 2.2$ mm the component comes to
+0.279 T against a measured 0.261 T, so the field itself is right to about 7%, in line with the rest of the
+circuit; but the section value climbs to 0.370 T by $x = 4.5$ mm, and averaging across the band takes the
+reported figure to 0.329 T. Position 7 is the same story at the top of the plate, where the flux is on its way
+out into the flange: its band runs from 55 mm to the top of the plate at 63.2 mm and averages over the whole
+of that turn.
 
 !media media/team13_flux.png
        id=flux-profile
-       caption=Flux density up the centre plate at 1000 AT. The computed profile has the shape of the
-               measurement and sits a few percent below it on the shipped mesh; refining the mesh in the
-               gap closes most of that, as the table below shows.
+       caption=Flux density up the centre plate at 1000 AT, positions 1 to 7 of Table 1. The computed profile
+               has the shape of the measurement and sits a few percent below it on the shipped mesh; refining
+               the mesh in the gap closes most of that. The last point, at z = 60 mm, averages over the turn
+               out into the flange and falls further short.
        style=width:80%;margin-left:auto;margin-right:auto;
 
-On the shipped mesh the computed flux runs 6 to 9% below the measurements over positions 1 to 6, and the
-whole profile moves up towards them under refinement. Position 7 is the exception, and it is not really
-comparable: its block runs from 55 mm to the top of the plate rather than being centred on 60 mm, and it
-sits exactly where the flux is turning out of the plate and into the flange, so it averages over the
-steepest part of the profile.
+### Tables 2 and 3 id=point-values
+
+The problem statement asks for two further sets, neither of which it gives measurements for - they are there
+to be compared between methods. Both are point values rather than section averages, so unlike Table 1 the
+magnitude is the right quantity for them. Both are sampled straight from
+$\left|\nabla \times \vec{A}\right|$ rather than from the projected `b_magnitude`, so they carry no extra
+projection error, and both are written to their own CSV files beside the postprocessor output.
+
+Table 2, positions 26 to 36, is the flux density in the air under the flange, along the line $y = 20$ mm,
+$z = 55$ mm. It falls from 34.4 mT at $x = 10$ mm to 1.6 mT at $x = 110$ mm: this is the leakage across the
+channel window, strongest where the window is narrowest, next to the plate.
+
+Table 3 is four points chosen because a method that is getting the field right should agree there.
+
+| Point | Coordinates (mm) | Where | Computed (T) |
+| :- | :- | :- | -: |
+| 1 | (2.2, 15.1, 60.1) | in the flange, at the corner nearest the gap | 2.268 |
+| 2 | (2.0, 14.9, 50.9) | in the gap, beside the plate | 0.030 |
+| 3 | (1.5, 0, 55) | on the face of the plate, near the top | 0.323 |
+| 4 | (1.5, 0, 25) | on the face of the plate, half way up | 1.151 |
+
+Point 1 is deep into saturation, which is what the corner of the flange facing the gap should be. Point 4
+sits between the plate averages either side of it, 1.187 T at $z = 20$ mm and 1.130 T at $z = 30$ mm, as it
+should. Point 3 is much lower than the plate average at that height because it is on the face of the plate
+rather than inside it, where the flux is already turning out towards the flange.
 
 ## Convergence id=convergence
 
@@ -312,9 +451,9 @@ deep into saturation and take a while to walk back out.
 
 ## Notes id=notes
 
-The benchmark also specifies a 3000 AT case, which saturates the steel much harder; `ampere_turns=3000` on
-the command line switches to it. Only the 1000 AT case is exercised by the test suite, and only the 1000 AT
-measurements are quoted above, because those are the ones printed in the problem statement.
+Only the 1000 AT case is exercised by the test suite. The 3000 AT case is tabulated above but is left out of
+the test, and off the figures, because it takes four times as long, its solver does not formally converge, and
+there are no measurements to read it against; see [Running](#running).
 
 ## References id=references
 
