@@ -1,0 +1,4 @@
+time,coolant_temperature,max_temperature,surface_temperature,total_power
+0,300,300,300,0
+1,300,300,300,0
+2,300.00016312865,320.7668425394,308.1223664457,5472.5822533688

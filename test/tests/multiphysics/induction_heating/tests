@@ -1,0 +1,66 @@
+[Tests]
+  design = 'MultiAppMFEMTolibMeshShapeEvaluationTransfer.md '
+           'MultiApplibMeshToMFEMShapeEvaluationTransfer.md '
+           'CoupledHeatTransferAction.md'
+  issues = '#108' # TODO: point at the issue/PR tracking this example
+
+  # The meshes are not committed (the repository ignores *.e), so these two both
+  # check that mesh.i still works and produce what the solves below read.
+  [em_mesh]
+    type = 'CheckFiles'
+    input = 'mesh.i'
+    cli_args = '--mesh-only induction_em.e'
+    check_files = 'induction_em.e'
+    recover = false
+    restep = false
+    requirement = 'The system shall build the three region electromagnetic mesh for the induction '
+                  'heating example.'
+  []
+  [billet_mesh]
+    type = 'CheckFiles'
+    input = 'mesh.i'
+    cli_args = 'Mesh/final_generator=billet --mesh-only induction_billet.e'
+    check_files = 'induction_billet.e'
+    recover = false
+    restep = false
+    requirement = 'The system shall build the billet only thermal mesh for the induction heating '
+                  'example, with the billet occupying the same space as it does in the '
+                  'electromagnetic mesh.'
+  []
+
+  [electromagnetics]
+    type = 'CSVDiff'
+    input = 'induction_em.i'
+    csvdiff = 'OutputData/InductionEM.csv'
+    cli_args = 'Executioner/end_time=1 Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    prereq = 'em_mesh'
+    recover = false
+    restep = false
+    requirement = 'The system shall solve the time-harmonic eddy current problem of the induction '
+                  'heating example on its own, in first order Nedelec elements, splitting the '
+                  'complex vector potential into its in-phase and quadrature parts so that both '
+                  'are real MFEM variables.'
+  []
+
+  [coupled]
+    type = 'CSVDiff'
+    input = 'induction_heating.i'
+    csvdiff = 'OutputData/InductionHeating.csv'
+    # Two one second steps are enough to exercise every transfer in both
+    # directions in a reasonable time: the first carries the temperature out and
+    # the dissipation back, the second is the first to solve with that source.
+    # doc/content/problems/induction_heating.md reports the full run to 300 s.
+    cli_args = 'Executioner/dt=1 Executioner/end_time=2 Outputs/Exodus/enable=false'
+    capabilities = 'mfem'
+    prereq = 'electromagnetics billet_mesh'
+    max_time = 900
+    recover = false
+    restep = false
+    requirement = 'The system shall solve a coupled electromagnetic, thermal and thermal hydraulic '
+                  'problem as a MultiApp, with the eddy current heating of a billet computed by '
+                  'MFEM, the heat conduction in the billet computed by libMesh with the heat '
+                  'transfer module, and the coolant channel that cools it computed by the thermal '
+                  'hydraulics module, exchanging fields between all three every timestep.'
+  []
+[]

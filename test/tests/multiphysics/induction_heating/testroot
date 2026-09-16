@@ -1,0 +1,13 @@
+# This example needs the heat transfer and thermal hydraulics modules as well as
+# MFEM, which the framework's moose_test executable does not carry. Running the
+# suite with --use-subdir-exe picks up thermal_hydraulics-opt for everything
+# below here, and leaves the rest of Canary on moose_test.
+#
+# thermal_hydraulics is the smallest application that carries everything this
+# example uses: it pulls in heat_transfer and fluid_properties as dependencies,
+# and MFEM comes from the framework. combined-opt also works; change app_name
+# below if that is the build you have.
+app_name = thermal_hydraulics
+allow_warnings = false
+allow_unused = false
+allow_override = false
