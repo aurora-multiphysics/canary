@@ -150,8 +150,16 @@ modelled. That is the usual treatment for a driven coil, and it is why the coil 
 thermal mesh.
 
 The block operator the two Nédélec fields assemble into is not one the $H(\mathrm{curl})$ algebraic
-multigrid preconditioners (AMS) are set up for, so it is solved directly with `MFEMSuperLU`. On this
-mesh that takes about two seconds and a gigabyte. MUMPS exhausts memory on the same system.
+multigrid preconditioners (AMS) are set up for, so it is solved directly, with `MFEMMUMPS`. On this
+mesh that takes about two seconds and a gigabyte of host memory.
+
+`MFEMSuperLU` gives a bit-identical answer and is equally quick, but it is the wrong choice on a
+machine with a GPU. Where PETSc is configured `--with-cuda`, its SuperLU_DIST puts the factorisation
+on the device and takes roughly 700 MB of GPU memory per MPI rank; ten ranks then exhaust an 8 GB
+card and the run dies in PETSc's device initialisation with `cudaErrorMemoryAllocation`. MUMPS stays
+on the host and takes none, and runs unchanged at sixteen ranks. This is worth knowing more
+generally: a direct solver that silently offloads is easy to mistake for a solver that simply needs
+less memory than the alternative.
 
 !listing canary/test/tests/multiphysics/induction_heating/induction_em.i
 
@@ -182,6 +190,44 @@ the profile, rather than the coupling, is what is of interest.
 
 Over the billet the mean dissipation is $2.20 \times 10^7$ W/m³, which over its volume of
 $2.485 \times 10^{-4}$ m³ is 5.47 kW.
+
+### The fields id=fields
+
+The app also carries E and B as auxvariables, and reports the cycle root-mean-square magnitude of
+each, averaged over the billet. Since $\mathbf{E} = -j \omega \mathbf{A}$, the in-phase part of E
+is built from the quadrature part of A and vice versa, which is a scaled sum
+(`MFEMSumAux`); $\mathbf{B} = \nabla \times \mathbf{A}$ takes the potential from $H(\mathrm{curl})$
+into $H(\mathrm{div})$ (`MFEMCurlAux`).
+
+The two RMS scalars the postprocessors average are not built from those auxvariables, though. For a
+phasor field the mean of $|\mathbf{F}|^2$ over a cycle is $(|\mathbf{F}_r|^2 + |\mathbf{F}_i|^2)/2$,
+and MFEM already declares `<name>_mag` for a vector variable and `<name>_curl_mag` for the magnitude
+of its curl, so both read directly off the solution. That matters: the `coefficient` parameter of
+`MFEMScalarProjectionAux` is not registered as a dependency, so an auxvariable reached through it
+would not be ordered against the AuxKernel that fills it, and could be a step stale.
+
+Sampling $|\mathbf{B}|_{\rm rms}$ along a radius at the axial midplane:
+
+| $r$ (mm) | 0 | 8 | 12 | 16 | 19.9 | 21 | 25 | 29 |
+| :- | -: | -: | -: | -: | -: | -: | -: | -: |
+| $\left|\mathbf{B}\right|_{\rm rms}$ (T) | 0.038 | 0.041 | 0.051 | 0.072 | 0.096 | 0.096 | 0.094 | 0.093 |
+
+Two things are worth checking in that profile. It is continuous across the billet surface at 20 mm,
+0.0956 T just inside against 0.0958 T just outside, as it must be for a non-magnetic conductor. And
+the field does not fall to zero on the axis, because $a/\delta = 2.6$ is not large enough to screen
+the billet completely.
+
+The bore field is also the one number in this problem with a clean analytic counterpart. An infinite
+solenoid of the same ampere-turns per unit length would give
+$\mu_0 N I / L = 0.133$ T rms. This coil is 0.1 m long and 0.09 m across, and a finite solenoid
+gives a fraction $L / \sqrt{L^2 + D^2} = 0.74$ of the infinite result, so 0.098 T. The solve gives
+0.096 T, within 3%, which is a reasonable check that the coil drive, the gauge regularisation and
+the truncation boundary are all doing what they should.
+
+The mean electric field over the billet is 3.09 V/m rms. That is consistent with the dissipation
+through $q = \sigma |\mathbf{E}|^2_{\rm rms}$: the mean dissipation implies
+$\sqrt{\bar{q}/\sigma} = 3.97$ V/m, and the mean of $|\mathbf{E}|$ is necessarily below the root of
+the mean of $|\mathbf{E}|^2$ for a field that varies as strongly across the billet as this one does.
 
 ## The Thermal Problem id=thermal
 

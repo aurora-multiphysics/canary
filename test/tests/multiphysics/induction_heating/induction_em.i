@@ -75,6 +75,11 @@ coil_current_density = ${fparse coil_current / coil_area}
     fec_type = ND
     fec_order = FIRST
   []
+  [HDivFESpace]
+    type = MFEMVectorFESpace
+    fec_type = RT
+    fec_order = CONSTANT
+  []
   [L2FESpace]
     type = MFEMScalarFESpace
     fec_type = L2
@@ -107,6 +112,37 @@ coil_current_density = ${fparse coil_current / coil_area}
   []
   # Cycle-averaged Ohmic dissipation, transferred out to the thermal parent app.
   [joule_heating]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
+
+  # The fields themselves, for viewing. E = -j omega A gives E_r = omega A_i and
+  # E_i = -omega A_r; B = curl A componentwise.
+  [e_field_real]
+    type = MFEMVariable
+    fespace = HCurlFESpace
+  []
+  [e_field_imag]
+    type = MFEMVariable
+    fespace = HCurlFESpace
+  []
+  [b_field_real]
+    type = MFEMVariable
+    fespace = HDivFESpace
+  []
+  [b_field_imag]
+    type = MFEMVariable
+    fespace = HDivFESpace
+  []
+
+  # Cycle root-mean-square magnitudes of the two fields, which are what the
+  # postprocessors below average. A scalar L2 space so that they can be block
+  # restricted to the billet.
+  [e_field_rms]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
+  [b_field_rms]
     type = MFEMVariable
     fespace = L2FESpace
   []
@@ -155,6 +191,25 @@ coil_current_density = ${fparse coil_current / coil_area}
     symbol_names = 'sigma omega'
     symbol_values = 'electrical_conductivity ${angular_frequency}'
   []
+  # Cycle root-mean-square magnitudes. For a phasor field
+  # F(t) = Re{(F_r + j F_i) exp(j omega t)}, the mean of |F|^2 over a cycle is
+  # (|F_r|^2 + |F_i|^2) / 2. MFEM declares the magnitude of a vector variable as
+  # <name>_mag, and the magnitude of its curl as <name>_curl_mag, so both of
+  # these read straight off the solution rather than off an auxvariable computed
+  # by another AuxKernel, which would need the two to be ordered.
+  [e_field_rms_density]
+    type = MFEMParsedFunction
+    expression = 'omega * sqrt(0.5 * (a_r * a_r + a_i * a_i))'
+    symbol_names = 'omega a_r a_i'
+    symbol_values = '${angular_frequency} A_real_mag A_imag_mag'
+  []
+  [b_field_rms_density]
+    type = MFEMParsedFunction
+    expression = 'sqrt(0.5 * (b_r * b_r + b_i * b_i))'
+    symbol_names = 'b_r b_i'
+    symbol_values = 'A_real_curl_mag A_imag_curl_mag'
+  []
+
   [ohmic_dissipation]
     type = MFEMParsedFunction
     expression = '0.5 * sigma * omega * omega * (a_r * a_r + a_i * a_i)'
@@ -237,13 +292,64 @@ coil_current_density = ${fparse coil_current / coil_area}
     coefficient = ohmic_dissipation
     execute_on = TIMESTEP_END
   []
+
+  # E = -j omega A, so the in-phase part of E comes from the quadrature part of A
+  # and vice versa, with a sign change.
+  [electric_field_real]
+    type = MFEMSumAux
+    variable = e_field_real
+    source_variables = A_imag
+    scale_factors = ${angular_frequency}
+    execute_on = TIMESTEP_END
+  []
+  [electric_field_imag]
+    type = MFEMSumAux
+    variable = e_field_imag
+    source_variables = A_real
+    scale_factors = ${fparse -angular_frequency}
+    execute_on = TIMESTEP_END
+  []
+
+  # B = curl A, which takes the H(curl) potential into the H(div) space.
+  [magnetic_flux_density_real]
+    type = MFEMCurlAux
+    variable = b_field_real
+    source = A_real
+    execute_on = TIMESTEP_END
+  []
+  [magnetic_flux_density_imag]
+    type = MFEMCurlAux
+    variable = b_field_imag
+    source = A_imag
+    execute_on = TIMESTEP_END
+  []
+
+  [electric_field_rms]
+    type = MFEMScalarProjectionAux
+    variable = e_field_rms
+    coefficient = e_field_rms_density
+    execute_on = TIMESTEP_END
+  []
+  [magnetic_flux_density_rms]
+    type = MFEMScalarProjectionAux
+    variable = b_field_rms
+    coefficient = b_field_rms_density
+    execute_on = TIMESTEP_END
+  []
 []
 
 [Solvers]
   # The two Nedelec fields assemble into one 2x2 block operator, for which the
   # H(curl) preconditioners (AMS) are not set up, so it is solved directly.
+  #
+  # MUMPS rather than SuperLU deliberately. The two give bit-identical answers
+  # here, but where PETSc is built --with-cuda its SuperLU_DIST puts the
+  # factorisation on the GPU and takes around 700 MB of device memory per MPI
+  # rank, which exhausts an 8 GB card at about ten ranks and fails with
+  # 'cudaErrorMemoryAllocation'. MUMPS stays on the host and uses none.
   [main]
-    type = MFEMSuperLU
+    type = MFEMMUMPS
+    print_level = 0
   []
 []
 
@@ -268,6 +374,21 @@ coil_current_density = ${fparse coil_current / coil_area}
   [mean_power_density]
     type = MFEMElementAverageValue
     variable = joule_heating
+    block = billet
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
+  # Cycle RMS field magnitudes averaged over the billet, which is where they set
+  # the heating. Drop the block restriction, or point it at 'coil' or 'air', to
+  # look at the applied field instead.
+  [mean_e_field]
+    type = MFEMElementAverageValue
+    variable = e_field_rms
+    block = billet
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
+  [mean_b_field]
+    type = MFEMElementAverageValue
+    variable = b_field_rms
     block = billet
     execute_on = 'INITIAL TIMESTEP_END'
   []

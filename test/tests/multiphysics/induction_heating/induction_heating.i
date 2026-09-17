@@ -187,8 +187,15 @@ initial_temperature = 300 # K
   nl_rel_tol = 1e-8
   nl_abs_tol = 1e-6
 
-  petsc_options_iname = '-pc_type -pc_hypre_type'
-  petsc_options_value = 'hypre boomeramg'
+  # Additive Schwarz with an incomplete LU on each block. This is a linear,
+  # symmetric, 1305 unknown conduction problem, so the preconditioner barely
+  # matters for convergence; what it must not do is reach for a GPU. On a PETSc
+  # built --with-cuda, PCCreate_HYPRE initialises a CUDA device, and every MPI
+  # rank then takes a context of several hundred megabytes. BoomerAMG would buy
+  # nothing on a problem this size and would make the run die with
+  # 'cudaErrorMemoryAllocation' above about ten ranks on an 8 GB card.
+  petsc_options_iname = '-pc_type -sub_pc_type'
+  petsc_options_value = 'asm ilu'
 []
 
 [Postprocessors]

@@ -1,3 +1,3 @@
-time,mean_power_density
-0,0
-1,22025452.229251
+time,mean_b_field,mean_e_field,mean_power_density
+0,0,0,0
+1,0.034517772566321,3.0879349901426,22025452.229251
