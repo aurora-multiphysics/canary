@@ -34,6 +34,22 @@ Two small liberties are taken with the specification, both noted by --check:
 
 import argparse
 import math
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[4]
+DEFAULT_OUTDIR = REPO_ROOT / "doc" / "content" / "media"
+
+# Chart surface and ink, shared with the other TEAM Problem 13 figures; see
+# plot_team13_flux.py.
+SURFACE = "#fcfcfb"
+TEXT_PRIMARY = "#0b0b0b"
+TEXT_SECONDARY = "#52514e"
+GRID = "#e6e5e1"
+# The tabulated points and the curve through them are one series, so they share a
+# colour; the points are drawn without a surface-coloured ring, which would break
+# the line wherever they sit close together.
+CURVE = "#2a78d6"
 
 MU0 = 4.0e-7 * math.pi
 A, B_, C = -2.381e-10, 2.327e-5, 1.590
@@ -160,14 +176,143 @@ def check():
           % (min(nu), nu[-1]))
 
 
+def _sci(v):
+    """A coefficient in mathtext scientific notation, sign included."""
+    e = math.floor(math.log10(abs(v)))
+    return r"%.4g{\times}10^{%d}" % (v / 10.0 ** e, e)
+
+
+def _style(ax):
+    """The axis styling used by the other figures in the documentation."""
+    ax.set_facecolor(SURFACE)
+    ax.set_axisbelow(True)
+    ax.grid(True, axis="y", color=GRID, linewidth=1.0, solid_capstyle="butt")
+    ax.grid(False, axis="x")
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+        ax.spines[side].set_linewidth(1.0)
+    ax.tick_params(which="both", colors=TEXT_SECONDARY, labelsize=9, length=0)
+
+
+def _curve(b_max=2.6, n=6000):
+    """The curve as (H, B) pairs, split where Eq. (1) takes over from the spline."""
+    spline, analytic = [], []
+    for i in range(n + 1):
+        b = b_max * i / n
+        point = (h_of_b(b), b)
+        # 1.8 T is the last tabulated point; above it the curve is Eq. (1). The
+        # join is repeated in both lists so the two segments meet on the plot.
+        if b <= TABLE[-1][0]:
+            spline.append(point)
+        if b >= TABLE[-1][0]:
+            analytic.append(point)
+    return spline, analytic
+
+
+def _draw(ax, spline, analytic=None):
+    """The spline, the analytic branch above it if asked for, and the table points."""
+    ax.plot([h for h, _ in spline], [b for _, b in spline], color=CURVE,
+            linewidth=2.0, zorder=2)
+    if analytic:
+        ax.plot([h for h, _ in analytic], [b for _, b in analytic], color=CURVE,
+                linewidth=2.0, linestyle=(0, (4, 2)), zorder=2)
+    # The first tabulated point is H = 0, which has no place on a log axis.
+    first = 1 if ax.get_xscale() == "log" else 0
+    ax.plot([h for _, h in TABLE[first:]], [b for b, _ in TABLE[first:]],
+            linestyle="none", marker="o", markersize=5.0, color=CURVE,
+            markeredgecolor="none", zorder=3)
+    ax.set_xlabel("Magnetic field strength, H (A/m)", color=TEXT_SECONDARY, fontsize=10)
+    ax.set_ylabel("Flux density, B (T)", color=TEXT_SECONDARY, fontsize=10)
+
+
+def _legend(ax):
+    from matplotlib.lines import Line2D
+
+    handles = [
+        Line2D([], [], linestyle="none", marker="o", markersize=5.0, color=CURVE,
+               markeredgecolor="none", label="Reference data"),
+        Line2D([], [], color=CURVE, linewidth=2.0, label="Cubic spline fit"),
+    ]
+    legend = ax.legend(handles=handles, loc="lower right", frameon=False, fontsize=9)
+    for text in legend.get_texts():
+        text.set_color(TEXT_SECONDARY)
+
+
+def _new_figure(title):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.6), dpi=200)
+    fig.patch.set_facecolor(SURFACE)
+    _style(ax)
+    fig.suptitle(title, color=TEXT_PRIMARY, fontsize=12, x=0.012, ha="left", y=0.975)
+    return fig, ax
+
+
+def _save(fig, output, top):
+    """Lay the figure out once everything is on it, then write it."""
+    import matplotlib.pyplot as plt
+
+    fig.tight_layout(rect=(0, 0, 1, top))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def plot_knee(output):
+    """B against H on linear axes, over the range where the permeability varies.
+
+    Carrying the axis to the last tabulated point instead would put twenty-two of
+    the twenty-seven points in its leftmost tenth; plot_saturation covers the rest.
+    """
+    spline, _ = _curve()
+    fig, ax = _new_figure("B-H curve of the TEAM Problem 13 steel, to the knee")
+    _draw(ax, spline)
+    ax.set_xlim(-25, 1000)
+    ax.set_ylim(0, 1.55)
+    _legend(ax)
+    _save(fig, output, 0.93)
+
+
+def plot_saturation(output):
+    """B against H on a log field axis, over the whole range through to saturation."""
+    spline, analytic = _curve()
+    fig, ax = _new_figure("B-H curve of the TEAM Problem 13 steel, to saturation")
+    ax.set_xscale("log")  # before _draw, which drops the H = 0 point for a log axis
+    _draw(ax, spline, analytic)
+    ax.set_xlim(10, 1.0e6)
+    ax.set_ylim(0, 2.6)
+    # Above the last tabulated point the curve is B = mu0 H + M(H), with the
+    # magnetisation the benchmark's quadratic, held at its peak once it gets there.
+    fig.text(0.988, 0.900,
+             r"$M(H) = %sH^2 + %sH + %.3f$" % (_sci(A), _sci(B_), C) + "\n"
+             r"above B = %.1f T (dashed), held at $M_s$ = %.4f T" % (TABLE[-1][0], M_SAT),
+             color=TEXT_SECONDARY, fontsize=8.5, ha="right", va="top", linespacing=1.5)
+    _legend(ax)
+    _save(fig, output, 0.82)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--check", action="store_true",
                    help="report how faithfully the expressions follow the specification")
+    p.add_argument("--plot", action="store_true",
+                   help="write a figure of the B-H curve instead of the expressions")
+    p.add_argument("--outdir", type=Path, default=DEFAULT_OUTDIR,
+                   help="directory the figure is written to (default: %(default)s)")
     args = p.parse_args()
     if args.check:
         check()
+        return
+    if args.plot:
+        for name, draw in (("team13_bh_curve.png", plot_knee),
+                           ("team13_bh_saturation.png", plot_saturation)):
+            draw(args.outdir / name)
+            print(f"wrote {args.outdir / name}")
         return
     h, d = expressions()
     print("# H(B), A/m -- paste as the expression of the h_of_b function")
