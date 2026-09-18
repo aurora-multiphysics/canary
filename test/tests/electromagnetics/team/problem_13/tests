@@ -1,0 +1,38 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [TEAM_Problem_13]
+    type = 'CSVDiff'
+    input = 'team13.i'
+    csvdiff = 'OutputData/TEAM13CSV.csv
+               OutputData/TEAM13CSV_air_line_0001.csv
+               OutputData/TEAM13CSV_recommended_points_0001.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 13, computing the flux density in the '
+                  'saturating steel of a coil-driven magnetic circuit, using a non-linear H(curl) '
+                  'magnetostatic solve whose reluctivity follows the B-H curve given by the '
+                  'benchmark, and shall report the average flux densities and sampled points that '
+                  'the benchmark asks to be compared.'
+  []
+  [TEAM_Problem_13_second_order]
+    type = 'CSVDiff'
+    input = 'team13.i'
+    cli_args = 'fe_order=SECOND flux_order=FIRST '
+               'Outputs/ParaViewDataCollection/enable=false '
+               'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM13CSV_SECOND'
+    csvdiff = 'OutputData/TEAM13CSV_SECOND.csv
+               OutputData/TEAM13CSV_SECOND_air_line_0001.csv
+               OutputData/TEAM13CSV_SECOND_recommended_points_0001.csv'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    heavy = true
+    max_time = 1800
+    requirement = 'The system shall reproduce TEAM Problem 13 with second order Nedelec elements for '
+                  'the magnetic vector potential, recovering flux densities closer to the measured '
+                  'values than first order elements on the same mesh.'
+  []
+[]
