@@ -1,0 +1,44 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  # Both cases factorise a complex system of about 220,000 unknowns directly, which
+  # takes 6 to 7 GB of memory in total whatever the number of processes, and one to
+  # three minutes.
+  [TEAM_Problem_7_50Hz]
+    type = 'CSVDiff'
+    input = 'team7.i'
+    csvdiff = 'OutputData/TEAM7CSV.csv
+               OutputData/TEAM7CSV_bz_a1_b1_0001.csv
+               OutputData/TEAM7CSV_bz_a2_b2_0001.csv
+               OutputData/TEAM7CSV_jy_a3_b3_0001.csv
+               OutputData/TEAM7CSV_jy_a4_b4_0001.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 7 at 50 Hz, computing the flux density '
+                  'above, and the eddy current density on the surfaces of, a thick conducting '
+                  'plate with an off-centre hole driven by a racetrack coil, using a '
+                  'time-harmonic H(curl) solve gauged by a tree-cotree decomposition of the '
+                  'non-conducting region, and shall report the fields along the lines the '
+                  'benchmark measures them on.'
+  []
+  [TEAM_Problem_7_200Hz]
+    type = 'CSVDiff'
+    input = 'team7.i'
+    cli_args = 'frequency=200 '
+               'Outputs/ParaViewDataCollection/enable=false '
+               'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM7CSV_200Hz'
+    csvdiff = 'OutputData/TEAM7CSV_200Hz.csv
+               OutputData/TEAM7CSV_200Hz_bz_a1_b1_0001.csv
+               OutputData/TEAM7CSV_200Hz_bz_a2_b2_0001.csv
+               OutputData/TEAM7CSV_200Hz_jy_a3_b3_0001.csv
+               OutputData/TEAM7CSV_200Hz_jy_a4_b4_0001.csv'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    heavy = true
+    requirement = 'The system shall reproduce TEAM Problem 7 at 200 Hz, where the skin depth in '
+                  'the plate is a third of its thickness.'
+  []
+[]
