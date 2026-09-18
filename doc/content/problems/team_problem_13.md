@@ -22,8 +22,8 @@ All dimensions are from Fig. 1 of the problem statement. The steel is 3.2 mm thi
 | :- | :- |
 | Centre plate | 3.2 mm ($x$) by 50 mm ($y$) by 126.4 mm ($z$), centred on the origin |
 | Channels | C-sections, 3.2 mm thick, 50 mm wide in $y$, 126.4 mm tall |
-| Channel flanges | reach in to $x = \pm 2.1$ mm, at $\left|z\right| = 60$ to $63.2$ mm |
-| Channel webs | at $\left|x\right| = 122.1$ to $125.3$ mm, full height |
+| Channel flanges | reach in to $x = \pm 2.1$ mm, at $\lvert z \rvert = 60$ to $63.2$ mm |
+| Channel webs | at $\lvert x \rvert = 122.1$ to $125.3$ mm, full height |
 | Channel offset | one at $15 \le y \le 65$ mm, the other at $-65 \le y \le -15$ mm |
 | Plate-to-channel gap | 0.5 mm nominal |
 | Coil | rounded rectangle, 150 mm inner opening with R25 corners, 25 mm thick, 100 mm tall |
@@ -380,7 +380,7 @@ along the part, and they are worth a note because they are also where the choice
 Averaging $\left|\vec{B}\right|$ rather than the component through the section makes no difference over most
 of the circuit and a large one at those two:
 
-| Section | Average component | Average $\left|\vec{B}\right|$ | Ratio |
+| Section | Average component | Average $\lvert \vec{B} \rvert$ | Ratio |
 | :- | -: | -: | -: |
 | plate, $z = 0$ | 1.231 | 1.231 | 1.00 |
 | plate, $z = 30$ mm | 1.130 | 1.131 | 1.00 |
