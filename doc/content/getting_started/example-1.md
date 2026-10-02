@@ -1,40 +1,34 @@
 # Example 1: Simple Diffusion
 
-To start let us run a basic steady-state diffusion example.
-We will aim to solve the problem detailed [here](https://mooseframework.inl.gov/syntax/MFEM/SteadyStateDiffusion.html).
-
-## Writing an input file
-
-MOOSE-MFEM input files use some extra blocks
-which the standard MOOSE diffusion example doesn't.
 Here we will talk through all the differences between
 the standard
 [MOOSE diffusion example](https://mooseframework.inl.gov/getting_started/examples_and_tutorials/examples/ex01_inputfile.html)
-and our
-[MFEM diffusion example](https://mooseframework.inl.gov/syntax/MFEM/SteadyStateDiffusion.html).
+and the
+[MOOSE-MFEM diffusion example](https://mooseframework.inl.gov/syntax/MFEM/SteadyStateDiffusion.html)
+input files.
+MFEM solver based input files use some extra blocks and kernels
+not seen when using standard MOOSE solvers.
+
+## Input File
 
 ### [Mesh](https://mooseframework.inl.gov/syntax/Mesh/)
 
 Firstly, for any FEM simulation,
 we need to mesh over our domain.
-This can be done either with an externally generated mesh or,
-for simple meshes,
-we can use the built in
-[`MFEMGeneratedMeshGenerator`](https://mooseframework.inl.gov/source/mfem/meshgenerators/MFEMGeneratedMeshGenerator.html)
-object.
+This can be done either with an auto-generated mesh
+or an externally generated mesh file.
+Here our example opts to us a pre-generated mesh
+which is loaded using [`MFEMFileMesh`](https://mooseframework.inl.gov/source/mfem/mesh/MFEMFileMesh.html).
 
 !listing test/tests/mfem/kernels/diffusion.i block=Mesh
 
-Here our example opts to us a pre-generated mesh
-which it reads in using [`MFEMFileMesh`](https://mooseframework.inl.gov/source/mfem/mesh/MFEMFileMesh.html)
-
 ### [Problem](https://mooseframework.inl.gov/syntax/Problem/)
 
-This block is missing from the MOOSE example
-as it defaults to the standard
+The `Problem` block is missing from the MOOSE example
+as without a definition it defaults to the standard
 [`FEProblem`](https://mooseframework.inl.gov/source/problems/FEProblem.html).
 As we wish to use the MFEM FE library instead of MOOSE's default libMesh
-we chose to set our problem type to
+we set our problem type to
 [`MFEMProblem`](https://mooseframework.inl.gov/source/mfem/problem/MFEMProblem.html).
 
 !listing test/tests/mfem/kernels/diffusion.i block=Problem
@@ -42,38 +36,37 @@ we chose to set our problem type to
 ### [FESpaces](https://mooseframework.inl.gov/moose/syntax/FESpaces/index.html), [Variables](https://mooseframework.inl.gov/moose/syntax/Variables/index.html), and [AuxVariables](https://mooseframework.inl.gov/syntax/AuxVariables/)
 
 Here we arrive at our first MFEM exclusive block.
-This is used to create MFEM finite element spaces
+This is used to define the MFEM finite element spaces
 in which our problem's variables live.
-In standard MOOSE the finite-element family and order are defined within the
+In standard input file these are defined within the
 [`Variables`](https://mooseframework.inl.gov/syntax/Variables/)
-block.
-Due to the way MFEM's solvers work these must be defined separately.
+block,
+but due to the way MFEM's solvers work they must be defined separately.
 
-There are four key space types to know:
+There are four key finite element collection (FEC) types available to use:
 `H1` for continuous finite elements,
 `L2` for discontinuous finite elements,
 `RT` for Raviart-Thomas H(div) conforming finite elements,
 and `ND` for Nedelec H(curl) conforming finite elements.
 
-The choice of finite element collection (FEC) type
+The choice of FEC type
 determines how neighboring element's polynomial representations
 must agree at their boundaries.
 
-- `H1` field values must agree
-- `L2` nothing has to agree
-- `ND` the tangential vector component agrees
-- `RT` the normal vector component agrees
+- For `H1` field values must agree.
+- For `L2` nothing has to agree.
+- For `ND` the tangential vector component agrees.
+- For `RT` the normal vector component agrees.
 
-Our example deals with a continuous
-[variable](https://mooseframework.inl.gov/syntax/Variables/)
-`concentration`
+Our example deals with a continuous variable `concentration`
 and a vector-field
 [auxiliary variable](https://mooseframework.inl.gov/syntax/AuxVariables/)
-`concentration_gradient`.
+`concentration_gradient`
+(discussed in more detail later).
 Thus we create two first order FE spaces to solve these variables in.
-First order
+Using first order
 [shape functions](https://mooseframework.inl.gov/source/problems/FEProblemBase.html#shape_functions)
-should be sufficient for our basic diffusion example.
+will be sufficient for our basic diffusion example.
 
 !listing test/tests/mfem/kernels/diffusion.i block=FESpaces Variables AuxVariables
 
@@ -83,12 +76,15 @@ In scientific computing kernel is an overloaded term with many definitions.
 MOOSE uses a kernel to mean a piece of physics.
 They represent terms in the weak form
 of our partial differential equations.
-These can be selected from a large selection of pre-made kernels,
-or with some C++ knowledge [created custom](https://mooseframework.inl.gov/getting_started/examples_and_tutorials/examples/ex02_kernel.html).
+These can be selected from a large number of pre-made kernels,
+or with some C++ knowledge
+[custom kernels](https://mooseframework.inl.gov/getting_started/examples_and_tutorials/examples/ex02_kernel.html)
+can be created.
 
 Here we are solving a diffusion problem
 so we'll call our physics kernel `diff`.
-There is an easy choice for the type as we can utilize the prexisting kernel type
+For this there is an easy choice for the type
+as we can utilize the pre-existing
 [`MFEMDiffusionKernel`](https://mooseframework.inl.gov/source/mfem/kernels/MFEMDiffusionKernel.html).
 
 !listing test/tests/mfem/kernels/diffusion.i start=[Kernels] end=[Solvers]
@@ -97,26 +93,27 @@ There is an easy choice for the type as we can utilize the prexisting kernel typ
 
 Auxiliary kernels are used to compute value that can be defined explicitly
 with a known function.
-This allows them to be calculated separately from the main solving step.
-Here we specify that we want to calculate the gradient of `concentration`
+This allows them to be calculated separately from the main FE solving step.
+Here we calculate the gradient of `concentration`
 using the
 [`MFEMGradAux`](https://mooseframework.inl.gov/source/mfem/auxkernels/MFEMGradAux.html)
 kernel.
-We further specify to execute this calculation as a post-processing step by
+We further specify that this calculation
+should be executed as a post-processing step by
 setting `execute_on` to `TIMESTEP_END`.
-As we are solving a steady state problem
-this is done after the main calculation completes.
 
 !listing test/tests/mfem/kernels/diffusion.i block=AuxKernels
 
 ### [BCs](https://mooseframework.inl.gov/syntax/BCs/index.html)
 
-To keep our example simple we will set `u` to 1 at the bottom boundary
+To keep our example simple we will set our variable `u`
+to 1 at the bottom boundary
 and 0 at the top boundary of of our mesh.
 We can do so in our input file by simply specifying top and bottom
 boundaries in the `BCs` section of the MOOSE input file.
 
-The type to select for a constant value boundary condition is
+The type to select for a constant value boundary condition
+used with an MFEM solver is
 [`MFEMScalarDirichletBC`](https://mooseframework.inl.gov/source/bcs/DirichletBC.html).
 We must also specify the variable the boundary will apply to
 along with its value.
@@ -124,13 +121,14 @@ You might wonder what happens to the other boundaries
 which are unspecified here.
 These are set to natural (zero flux)
 Neumann boundary conditions by default.
-To see a full list of supported BCs see [this page](https://mooseframework.inl.gov/syntax/BCs/index.html).
+To see a full list of supported BCs see [this page](https://mooseframework.inl.gov/syntax/BCs/index.html)
+and search for MFEM BCs.
 
 !listing test/tests/mfem/kernels/diffusion.i block=BCs
 
 ### [Solvers](https://mooseframework.inl.gov/syntax/Solvers/index.html)
 
-This is another MFEM exclusive block where
+`Solvers` is another MFEM exclusive block where
 we will select which algorithm
 should solve our kernel's equations.
 In other words, the [`Kernels`](https://mooseframework.inl.gov/syntax/Kernels/index.html)
@@ -138,43 +136,97 @@ block defines the mathematical operators,
 and the [`Solvers`](https://mooseframework.inl.gov/syntax/Solvers/index.html)
 block defines how those matrices are inverted.
 
-Our primary solver is selected under the `main` option.
-Here we decided upon
+The primary solver is specified under `main`.
+Here we decided to use
 [`MFEMHypreGMRES`](https://mooseframework.inl.gov/moose/source/mfem/solvers/MFEMHypreGMRES.html)
-which applies a Generalized Minimal Residual Method
+which applies a generalized minimal residual method
 ([GMRES](https://en.wikipedia.org/wiki/Generalized_minimal_residual_method))
 to approximate the solution.
-The understanding the specific solvers selected is not important to our example.
+Understanding the specific choice of solver is not important to our example.
+Also defined within `main` is
+the linear convergence tolerance `l_tol`,
+the max linear iterations `l_max_its`,
+and a pre-conditioning kernel.
 
-There are other definitions within this block,
-the first of which is
-A preconditioner is used to lower the required iterations to solve the problem.
-
-This applies a the
+A selection of pre-conditioning solvers are defined here as,
+`boomeramg` and `jacobi`.
+Pre-conditioners are used to lower the iterations required
+to converge the solution of a given problem.
+Their aim is not to calculate the solution itself
+but to transform the matrices so they are easier to solve.
+Here we select the
 [`MFEMHypreBoomerAMG`](https://mooseframework.inl.gov/moose/source/mfem/solvers/MFEMHypreBoomerAMG.html)
-preconditioner which applies the
+pre-conditioner which applies the
 [Hypre BoomerAMG](https://hypre.readthedocs.io/en/latest/solvers-boomeramg.html)
 algebraic multi-grid method.
+The second jacobi smoother is not used and defined here as inactive.
+It is included as an alternative pre-conditioner
+for the user to experiment with.
 
 !listing test/tests/mfem/kernels/diffusion.i block=Solvers
 
 ### [Executioner](https://mooseframework.inl.gov/syntax/Executioner/index.html)
 
-Simply put the executioner block defines how the code is executed.
-Here we can control the solving method,
-approach to time stepping,
-and or control [PETSc](https://petsc.org/release/documentation/) behavior.
-PETSc is used as the underlying solver in MOOSE
-and its options can be specified here.
+The `Executioner` block controls the approach to time stepping
+and the device to run our simulation on which for this example is a cpu.
+In typical MOOSE input files this is also where you specify your solver,
+and/or your PETSc options.
+When using MFEM these have already been defined above in the `Solvers` block.
 
-!listing canary/test/tests/kernels/simple_diffusion/simple_diffusion.i block=Executioner
+!listing test/tests/mfem/kernels/diffusion.i block=Executioner
 
-The two main types of solver for most simulations are
-[`NEWTON`](https://mooseframework.inl.gov/modules/phase_field/Solving.html)
-or
-[`PJFNK`](https://mooseframework.inl.gov/modules/phase_field/Solving.html)
-(Preconditioned Jacobian Free Network Newton Krylov).
+### [Postprocessors](https://mooseframework.inl.gov/syntax/Postprocessors/index.html)
+
+Under `Postprocessors` we specify steps to be run after the solve.
+The aim in this example is the calculate the $L^2$ norm
+of the computed concentration which is done here with
+[`MFEML2Error`](https://mooseframework.inl.gov/source/mfem/postprocessors/MFEML2Error.html).
+Setting `function = 0` tells
+[`MFEML2Error`](https://mooseframework.inl.gov/source/mfem/postprocessors/MFEML2Error.html)
+to compute concentration against a constant zero function.
+For a full list of post-processors go to
+[this page](https://mooseframework.inl.gov/syntax/Postprocessors/index.html)
+and search for the MFEM options.
+
+!listing test/tests/mfem/kernels/diffusion.i block=Postprocessors
+
+### [VectorPostprocessors](https://mooseframework.inl.gov/syntax/VectorPostprocessors/index.html)
+
+We can also specify vector post-processors that act on arrays of data.
+Here we use
+[`MFEMVariableLineValueSampler`](https://mooseframework.inl.gov/docs/PRs/33902/site/source/mfem/vectorpostprocessors/MFEMVariableLineValueSampler.html)
+to return samples of concentration within the region of interest
+with their coordinates attached.
+This is a useful feature with the full list of available processors
+[here](https://mooseframework.inl.gov/syntax/Postprocessors/index.html).
+
+!listing test/tests/mfem/kernels/diffusion.i block=VectorPostprocessors
 
 ### Outputs
 
-!listing canary/test/tests/kernels/simple_diffusion/simple_diffusion.i block=Outputs
+There are several MFEM specific outputs defined in this block
+with the `CSV` type selected as the active output type.
+Users are free to experiment with the other types.
+Notably
+[`ParaviewDataCollection`](https://docs.mfem.org/4.8/classmfem_1_1ParaViewDataCollection.html)
+provides output suitable for viewing via ParaView.
+
+!listing test/tests/mfem/kernels/diffusion.i block=Outputs
+
+## Running the Problem
+
+This example can be run by using the following commands from
+your MOOSE repository root:
+
+```bash
+# Go to test directory, simulation data will be output here
+cd test
+./moose_test-opt -i tests/mfem/kernels/diffusion.i
+```
+
+By default this will generate a csv results file.
+If `active` in the `Output` block is changed to `ParaViewDataCollection`
+the output can be viewed from Paraview.
+
+!style halign=center
+!media media/example-1-paraview.png style=width:70% alt=The concentration solution to diffusion.i displayed in paraview. The mug has a smooth gradient from the values of 1 at the top to 0 at the bottom.

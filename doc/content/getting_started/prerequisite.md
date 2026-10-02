@@ -7,6 +7,7 @@
 
 - Base knowledge of the finite element method.
 
+  - [What is the Finite Element Method?](https://mooseframework.inl.gov/help/faq/what_is_fem.html)
   - A good place to start if this is new to you is the
     [MOOSE Workshop Intro to FEM](https://www.youtube.com/watch?v=QPuK6OdF2hM&t=4256s).
 
