@@ -5,8 +5,12 @@ Reads the sampled values written by team7.i at 50 Hz and 200 Hz, prints them
 against Tables 2 and 3 of the problem statement, and draws the figures embedded
 in doc/content/problems/team_problem_7.md:
 
-    team7_bz.png   B_z along A1-B1 and A2-B2, 15 mm above the plate
-    team7_jy.png   J_y along A3-B3 and A4-B4, on the top and bottom of the plate
+    team7_signed.png  every line in the form published comparisons use,
+                      sign(Re F) |F|, with both frequencies on each panel
+    team7_bz.png      B_z along A1-B1 and A2-B2, 15 mm above the plate, at each
+                      of the two instants the benchmark tabulates
+    team7_jy.png      J_y along A3-B3 and A4-B4, on the top and bottom of the
+                      plate, likewise
 
 The solve is in the frequency domain with fields varying as exp(i omega t), and
 the coil current is real, so it peaks at omega t = 0. The field at an instant is
@@ -15,6 +19,11 @@ columns
 
     omega t = 0      Re(phasor)
     omega t = 90     Re(i * phasor) = -Im(phasor)
+
+The published comparisons of this benchmark plot sign(Re F) |F|, a magnitude
+carrying the sign of the omega t = 0 value, which hides almost all of the phase.
+The first figure does the same, so that these results can be read against them;
+the other two separate the instants and so show the phase as well.
 
 The test runs the 50 Hz case, and a second, heavy, test the 200 Hz one. Produce
 both by hand with
@@ -46,6 +55,7 @@ TEXT_SECONDARY = "#52514e"
 GRID = "#e6e5e1"
 MEASURED = "#e8710a"
 COMPUTED = "#2a78d6"
+FREQ_COLOUR = {50: "#2a78d6", 200: "#12866e"}  # one per frequency, in team7_signed.png
 
 GAUSS = 1.0e-4  # T
 MA_PER_M2 = 1.0e6  # A/m2, the unit Table 3 is given in
@@ -110,6 +120,14 @@ MEASURED_VALUES = {
     },
 }
 
+# Measured data that are not physically consistent, and are drawn hollow and left
+# out of the comparison as a result. On the bottom face at 50 Hz the measured
+# current is up to 0.8 of the top face's and leads it by up to 67 degrees
+# mid-plate, whereas a 19 mm plate 1.6 skin depths thick should attenuate it to
+# about 0.4 and delay it by about 90 degrees; the computed solution does, at both
+# frequencies. See the Results section of the documentation.
+INCONSISTENT = {("jy_a4_b4", 50)}
+
 # Each line: the sampler reporting it, its title, the column of the sampled vector
 # that holds the component the benchmark measures, the positions along it, and the
 # factor that turns the sampled value into the table's unit.
@@ -132,6 +150,24 @@ def read_line(base, sampler, variable, component, unit):
     re_col, im_col = f"{variable}_real_{component}", f"{variable}_imag_{component}"
     return ([float(r[re_col]) / unit for r in rows],
             [-float(r[im_col]) / unit for r in rows])
+
+
+def signed(wt0, wt90):
+    """sign(Re F) |F| at each point, from the omega t = 0 and 90 degree values."""
+    return [(1.0 if a >= 0.0 else -1.0) * (a * a + b * b) ** 0.5 for a, b in zip(wt0, wt90)]
+
+
+def _broken(xs, ys):
+    """Break a curve across the hole, between x = 18 and 126 mm on the J_y lines,
+    where there is no current, rather than draw it straight across."""
+    px, py = [], []
+    for k, (x, v) in enumerate(zip(xs, ys)):
+        if k and x - xs[k - 1] > 50.0:
+            px.append(float("nan"))
+            py.append(float("nan"))
+        px.append(x)
+        py.append(v)
+    return px, py
 
 
 def compare(results):
@@ -163,6 +199,12 @@ def compare(results):
                 rms = (sum((c - m) ** 2 for c, m in zip(comp, meas)) / len(meas)) ** 0.5 / peak
                 print(f"  {label:>5}: rms difference {100 * rms:5.1f}% and largest "
                       f"{100 * worst:5.1f}% of the peak measured value on the line")
+            meas_s, comp_s = signed(meas0, meas90), signed(*computed)
+            rms = (sum((c - m) ** 2 for c, m in zip(comp_s, meas_s)) / len(meas_s)) ** 0.5
+            print(f"  sign(Re)|F|: rms difference {100 * rms / peak:5.1f}% of the peak")
+            if (sampler, freq) in INCONSISTENT:
+                print("  note: these measurements are not physically consistent; see "
+                      "INCONSISTENT above")
 
 
 def _style(ax):
@@ -196,21 +238,15 @@ def plot(results, samplers, filename, ylabel, outdir):
             for j, phase in enumerate(("0", "90")):
                 ax = axes[2 * i + j][col]
                 _style(ax)
+                bad = (sampler, freq) in INCONSISTENT
                 ax.plot(xs, meas[j], linestyle="none", marker="o", markersize=5,
-                        color=MEASURED, label="measured")
+                        color=MEASURED, markerfacecolor="none" if bad else MEASURED,
+                        label="measured, inconsistent" if bad else "measured")
                 if comp is not None:
-                    # The J_y lines cross the hole between x = 18 and 126 mm, where
-                    # there is no current, so the curve is broken there rather than
-                    # drawn straight across it.
-                    px, py = [], []
-                    for k, (x, v) in enumerate(zip(xs, comp[j])):
-                        if k and x - xs[k - 1] > 50.0:
-                            px.append(float("nan"))
-                            py.append(float("nan"))
-                        px.append(x)
-                        py.append(v)
-                    ax.plot(px, py, color=COMPUTED, linewidth=1.6, marker=".",
+                    ax.plot(*_broken(xs, comp[j]), color=COMPUTED, linewidth=1.6, marker=".",
                             label="MFEM-MOOSE")
+                if bad:
+                    ax.legend(frameon=False, fontsize=8, labelcolor=TEXT_SECONDARY)
                 ax.set_title(f"{title}, {freq} Hz, $\\omega t$ = {phase}°",
                              fontsize=9.5, color=TEXT_PRIMARY, loc="left")
                 ax.set_ylabel(ylabel, fontsize=9, color=TEXT_SECONDARY)
@@ -220,6 +256,39 @@ def plot(results, samplers, filename, ylabel, outdir):
     fig.tight_layout()
     outdir.mkdir(parents=True, exist_ok=True)
     path = outdir / filename
+    fig.savefig(path, dpi=130, facecolor=SURFACE)
+    plt.close(fig)
+    print(f"wrote {path}")
+
+
+def plot_signed(results, outdir):
+    """Every line as sign(Re F) |F|, both frequencies on each panel."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(2, 2, figsize=(10.4, 7.6), facecolor=SURFACE)
+    for ax, (sampler, title, _, _, xs, _) in zip(axes.flat, LINES):
+        _style(ax)
+        for freq in sorted(results):
+            colour = FREQ_COLOUR[freq]
+            bad = (sampler, freq) in INCONSISTENT
+            ax.plot(xs, signed(*MEASURED_VALUES[sampler][freq]), linestyle="none", marker="o",
+                    markersize=5, color=colour, markerfacecolor="none" if bad else colour,
+                    label=f"{freq} Hz measured" + (", inconsistent" if bad else ""))
+            comp = results[freq].get(sampler)
+            if comp is not None:
+                ax.plot(*_broken(xs, signed(*comp)), color=colour, linewidth=1.6,
+                        label=f"{freq} Hz MFEM-MOOSE")
+        ax.set_title(title, fontsize=9.5, color=TEXT_PRIMARY, loc="left")
+        unit = "(G)" if sampler.startswith("bz") else "(10$^6$ A/m$^2$)"
+        ax.set_ylabel(f"sign(Re) |{title.split()[0]}| {unit}", fontsize=9, color=TEXT_SECONDARY)
+        ax.set_xlabel("x (mm)", fontsize=9, color=TEXT_SECONDARY)
+        ax.legend(frameon=False, fontsize=8, labelcolor=TEXT_SECONDARY)
+    fig.tight_layout()
+    outdir.mkdir(parents=True, exist_ok=True)
+    path = outdir / "team7_signed.png"
     fig.savefig(path, dpi=130, facecolor=SURFACE)
     plt.close(fig)
     print(f"wrote {path}")
@@ -246,6 +315,7 @@ def main():
 
     compare(results)
     if not args.no_plot:
+        plot_signed(results, args.outdir)
         plot(results, ["bz_a1_b1", "bz_a2_b2"], "team7_bz.png", "B$_z$ (G)", args.outdir)
         plot(results, ["jy_a3_b3", "jy_a4_b4"], "team7_jy.png", "J$_y$ (10$^6$ A/m$^2$)",
              args.outdir)
