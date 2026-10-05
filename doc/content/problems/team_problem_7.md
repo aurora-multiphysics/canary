@@ -192,6 +192,19 @@ cd test/tests/electromagnetics/team/problem_7
 
 It needs only `matplotlib`, and writes to `doc/content/media/`.
 
+The benchmark tabulates each quantity at two instants, which together give its amplitude and phase. Published
+comparisons, for example those of COMSOL and of Kapidani et al., plot a single curve per line instead:
+$\text{sign}(\text{Re}\,F)\,|F|$, the magnitude carrying the sign of the $\omega t = 0°$ value. That form hides
+almost all of the phase. The first figure uses it, so that these results can be read against those comparisons.
+The other two separate the instants, and so test the phase as well.
+
+!media media/team7_signed.png
+       id=team7-signed
+       caption=Every line as $\text{sign}(\text{Re}\,F)\,|F|$, the form published comparisons use, at 50 Hz and
+               200 Hz. Hollow markers are the 50 Hz bottom-face measurements, which are not physically consistent;
+               see below.
+       style=width:100%;margin-left:auto;margin-right:auto;
+
 !media media/team7_bz.png
        id=team7-bz
        caption=$B_z$ 15 mm above the plate along A1-B1 and A2-B2, at 50 Hz (left) and 200 Hz (right), at the two
@@ -200,35 +213,53 @@ It needs only `matplotlib`, and writes to `doc/content/media/`.
 
 !media media/team7_jy.png
        id=team7-jy
-       caption=$J_y$ along $y = 72$ mm on the top (A3-B3) and bottom (A4-B4) faces of the plate. The curve is
-               broken where the line crosses the hole.
+       caption=$J_y$ along $y = 72$ mm on the top (A3-B3) and bottom (A4-B4) faces of the plate, at the two
+               instants the benchmark reports. The curve is broken where the line crosses the hole.
        style=width:100%;margin-left:auto;margin-right:auto;
 
-Most of these profiles pass through zero, so the table below gives the RMS difference over each line, as a
-percentage of the largest measured magnitude on that line over both instants.
+Most of these profiles pass through zero, so the table below gives the RMS difference over each line as a
+percentage of the largest measured magnitude on that line, over both instants. "Signed" is the signed magnitude
+of the first figure, and 0° and 90° are the two instants.
 
-| Line | 50 Hz, $\omega t = 0°$ | 50 Hz, $\omega t = 90°$ | 200 Hz, $\omega t = 0°$ | 200 Hz, $\omega t = 90°$ |
-| :- | -: | -: | -: | -: |
-| A1-B1, $B_z$ | 2.8% | 0.6% | 3.0% | 2.9% |
-| A2-B2, $B_z$ | 2.3% | 0.8% | 2.3% | 4.3% |
-| A3-B3, $J_y$ (top) | 12.7% | 11.4% | 12.2% | 10.2% |
-| A4-B4, $J_y$ (bottom) | 45.8% | 49.4% | 15.4% | 15.1% |
+| Line | 50 Hz, signed | 50 Hz, 0° | 50 Hz, 90° | 200 Hz, signed | 200 Hz, 0° | 200 Hz, 90° |
+| :- | -: | -: | -: | -: | -: | -: |
+| A1-B1, $B_z$ | 3.1% | 2.8% | 0.6% | 3.1% | 3.0% | 2.9% |
+| A2-B2, $B_z$ | 2.1% | 2.3% | 0.8% | 2.5% | 2.3% | 4.3% |
+| A3-B3, $J_y$ (top) | 2.5% | 12.7% | 11.4% | 2.9% | 12.2% | 10.2% |
+| A4-B4, $J_y$ (bottom) | -- | -- | -- | 12.4% | 15.4% | 15.1% |
+
+The 50 Hz bottom-face row is left out: those measurements are not physically consistent, as explained below. By
+the measure published comparisons use, the flux density and the top-face current agree to 2% to 3%.
 
 ### Flux density id=results-b
 
-The flux density agrees closely at both frequencies. At 50 Hz it agrees at both instants, including the small
-$\omega t = 90°$ component, which comes entirely from the eddy currents. At 200 Hz that component is around 6 G
-in the coil interior against about 4 G measured. That is 3% of the peak field, and it does not change with
-refinement.
+The flux density agrees closely at both frequencies and both instants.
+
+The two lines differ from each other for physical reasons, and the model reproduces the difference. The coil
+alone, solved at 0.001 Hz where there are no eddy currents, gives nearly the same profile on both, about 100 G
+inside the coil. The plate's eddy currents cut that roughly in half at 50 Hz. A2-B2, at $y = 144$ mm, runs over
+solid plate. A1-B1, at $y = 72$ mm, runs over the hole, and the current circulating around the hole changes the
+field above it. Over the hole's left half the return flux on A1-B1 is $-18$ G to $-22$ G, against $-9$ G to
+$-15$ G on A2-B2, and above its right edge, at $x = 126$ mm, the field is 78 G against 60 G.
+
+At 200 Hz the $\omega t = 90°$ component is about 6 G in the coil interior against about 4 G measured. This comes
+from a nearly uniform phase difference of 2.5° to 4° along both lines, against less than 1° at 50 Hz. The
+$\omega t = 90°$ column is small, and a 3° shift of a 63 G field is the whole of the difference. The amplitude
+agrees to about 1%. Changing the plate's conductivity by 10% either way moves the phase by only 0.3°, so an
+uncertain conductivity does not explain it. The cause has not been found.
 
 ### Eddy current density on the top face id=results-top
 
 On the top face the computed magnitude of $J_y$ is within 8% of the measured one at every point, at both
-frequencies. Away from the hole the phase agrees to within 8°. Near the hole it does not, and that is what drives
-the RMS differences in the table. At 50 Hz the computed phase differs by 18° to 27° at $x = 0$ and between
-$x = 126$ and 180 mm. At 200 Hz the difference is confined to the edges of the hole, 18° at $x = 18$ mm and 27°
-at $x = 126$ mm. Published comparisons that plot the signed magnitude, $\text{sign}(\text{Re}\,J_y)|J_y|$, rather
-than the two instants separately, cannot show a phase difference of this kind.
+frequencies, and the signed magnitude agrees to under 3% RMS. Away from the hole the phase agrees to within 8°.
+
+Near the hole it does not, and that drives the larger differences at the two instants. At 50 Hz the phase differs
+by 18° to 27° at $x = 0$ and between $x = 126$ and 180 mm. At 200 Hz the difference is at the hole's edges: 18°
+at $x = 18$ mm and 27° at $x = 126$ mm. At those two points the model matches the measured bottom-face current to
+within 5° in phase and 4% in magnitude. The measurements therefore have the top face lagging the bottom face at
+the hole's edges. Current diffuses into the plate from the top, the face nearer the coil, so the top face should
+lead. That points to an error in the top-face measurements near the hole rather than in the model, but the
+problem statement gives no detail of how the currents were measured with which to confirm it.
 
 ### Eddy current density on the bottom face id=results-bottom
 
@@ -236,13 +267,20 @@ At 200 Hz the bottom face agrees at the edges of the hole and mid-plate, where t
 The disagreement is at $x = 270$ and 288 mm, within a few millimetres of the plate's outer edge, where the current
 turns to run down the side face.
 
-At 50 Hz the bottom face does not agree, and this is the one clear failure of the comparison. Between
-$x = 144$ and 252 mm the computed current is up to twice the measured one and differs in phase by more than 100°.
-Refining the mesh does not move it: doubling the layers through the plate changes it by 0.5% of the peak. The
-measured values are hard to reconcile with the other data too. At $x \ge 234$ mm their $\omega t = 90°$ column
-nearly repeats the top face's, while the $\omega t = 0°$ column changes sign. A plate 1.6 skin depths thick should
-both attenuate and phase-shift the current between its faces. Whether the fault lies with the model or with this
-table is not settled here. It is the first thing to revisit with an independent solution.
+At 50 Hz the bottom-face measurements are not physically consistent, and are not used in the comparison. The
+ratio of the bottom-face current to the top-face current at the same point shows why. Through a plate
+$d = 19$ mm thick, current driven from one face falls off and lags with depth. For a slab it would be reduced by
+$|1/\cosh(kd)|$, with $k = (1 + i)/\delta$ and skin depth $\delta$, which at 50 Hz is a factor of 0.43 with a
+lag of 91°. Mid-plate, between $x = 216$ and 252 mm, the model gives 0.42 to 0.50 with a lag of 68° to 76°. Over
+the same stretch the measured 50 Hz bottom current is 0.8 to 0.9 of the top face's and leads it by 54° to 73°: it
+is barely attenuated, and ahead in phase rather than behind. No sign convention for the table's columns
+reconciles it. At 200 Hz, by contrast, the model and the measurements both reduce the current mid-plate to under
+a tenth, as the slab does.
+
+Oddly, its magnitudes match the model's almost value for value if moved one position along the line (18 mm),
+for example 1.11 against 1.10 and 0.88 against 0.88, while its phases still do not. That suggests the table was
+corrupted, perhaps in transcription, but without the original measurements it cannot be corrected. Published
+comparisons do not use the bottom face at all.
 
 ### Joule loss id=results-loss
 
@@ -251,18 +289,28 @@ table is not settled here. It is the first thing to revisit with an independent 
 one number. Khebir et al. report 9.60 W at 200 Hz with second order elements on 424000 tetrahedra, and 9.66 W with
 first order elements on 755000.
 
-## Convergence id=convergence
+## Convergence and Robustness id=convergence
 
-Each of these was run at both frequencies against the supplied mesh:
+None of the differences from the measurements described above depends on how the problem is discretised or
+truncated. Each check below was run against the supplied setup:
 
-- **Layers through the plate, 6 to 12.** The sampled values move by at most 0.5% of the peak on any line, so the
-  plate is resolved through its thickness.
-- **Plan refined to 6 mm along the edges of the plate and the hole** (`--edge-size 6 --edge-band 20`, 73612
-  wedges). The overall agreement with the measurements is unchanged, as the RMS differences show. Individual
-  values sampled directly above or on those edges move by up to 8% of the peak. For $B_z$ that is up to 5 G, where
-  the field changes by up to 70 G over a few centimetres. Lowest-order Raviart-Thomas elements represent $B$ only
-  to first order pointwise, so those points are the most mesh-sensitive in the comparison. The Joule loss falls
-  3% at 50 Hz and 5% at 200 Hz, to 4.75 W and 9.94 W.
+- **Layers through the plate, 6 to 12, at 50 Hz.** The sampled values move by at most 0.5% of the peak on any
+  line, so the plate is resolved through its thickness.
+- **Plan refined to 6 mm along the edges of the plate and the hole, at both frequencies**
+  (`--edge-size 6 --edge-band 20`, 73612 wedges). The overall agreement with the measurements is unchanged, as the
+  RMS differences show. Individual values sampled directly above or on those edges move by up to 8% of the peak.
+  For $B_z$ that is up to 5 G, where the field changes by up to 70 G over a few centimetres. Lowest-order
+  Raviart-Thomas elements represent $B$ only to first order pointwise, so those points are the most mesh-sensitive
+  in the comparison. The Joule loss falls 3% at 50 Hz and 5% at 200 Hz, to 4.75 W and 9.94 W.
+- **Each wedge split into three tetrahedra, at 50 Hz.** The RMS differences change by at most 1.4% of the peak,
+  so the results do not depend on the element type.
+- **The free space box enlarged six-fold in $z$ and doubled in plan, at both frequencies.** The RMS differences
+  change by at most 1.2% of the peak, so the truncation boundary the benchmark specifies is far enough away.
+- **The gauge replaced by a small conductivity in the air and the coil, at 50 Hz.** A conductivity of 1 S/m,
+  $3 \times 10^{-8}$ of the plate's, also removes the null space. The results agree with the gauged ones to
+  round-off, so the gauge fixes the potential without affecting the physics.
+- **The plate's conductivity changed by 10% either way, at 200 Hz.** The phase of $B_z$ moves by 0.3° and its
+  amplitude by under 1%.
 
 The edge-refined mesh needs 11.7 GB for the factorisation, against 7 GB for the supplied one, which is why it is
 not the default. Second order elements would be the more economical route to a converged answer, but the
