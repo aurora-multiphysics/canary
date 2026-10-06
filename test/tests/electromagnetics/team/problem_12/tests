@@ -1,0 +1,110 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [TEAM_Problem_12]
+    requirement = 'The system shall reproduce TEAM Problem 12, the FELIX cantilevered beam, computing '
+                  'the eddy currents induced in a cantilevered aluminium beam by a decaying field '
+                  'and the deflection they drive in a crossed steady field, coupling an H(curl) '
+                  'magnetodynamic solve to the elastodynamics of the beam through the Lorentz force '
+                  'and the motional EMF,'
+    [coupled]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'Executioner/end_time=0.005 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_short'
+      csvdiff = 'OutputData/TEAM12CSV_short.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      recover = false
+      restep = false
+      detail = 'over the rise of the induced current;'
+    []
+    [bx_0.2]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0.2 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_bx_0.2'
+      csvdiff = 'OutputData/TEAM12CSV_bx_0.2.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'over the full transient with a 0.2 T steady field;'
+    []
+    [bx_0.5]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0.5 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_bx_0.5'
+      csvdiff = 'OutputData/TEAM12CSV_bx_0.5.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'over the full transient with a 0.5 T steady field;'
+    []
+    [bx_0.7]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0.7 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_bx_0.7'
+      csvdiff = 'OutputData/TEAM12CSV_bx_0.7.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'over the full transient with a 0.7 T steady field;'
+    []
+    [bx_0.9]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0.9 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_bx_0.9'
+      csvdiff = 'OutputData/TEAM12CSV_bx_0.9.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'over the full transient with a 0.9 T steady field;'
+    []
+    # With no steady field the beam does not move, so the elastodynamics sub-app is left out.
+    [aluminium]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0 MultiApps/active="" Transfers/active="" Executioner/end_time=0.04 '
+                 'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_aluminium'
+      csvdiff = 'OutputData/TEAM12CSV_aluminium.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'and the current induced with no steady field in an aluminium beam,'
+    []
+    [copper]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0 beam_conductivity=58.14e6 MultiApps/active="" Transfers/active="" '
+                 'Executioner/end_time=0.04 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_copper'
+      csvdiff = 'OutputData/TEAM12CSV_copper.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'a copper beam'
+    []
+    [brass]
+      type = CSVDiff
+      input = 'team12.i'
+      cli_args = 'steady_field=0 beam_conductivity=16.39e6 MultiApps/active="" Transfers/active="" '
+                 'Executioner/end_time=0.04 Outputs/ReportedPostprocessors/file_base=OutputData/TEAM12CSV_brass'
+      csvdiff = 'OutputData/TEAM12CSV_brass.csv'
+      capabilities = 'mfem'
+      min_parallel = 4
+      heavy = true
+      recover = false
+      restep = false
+      detail = 'and a brass beam.'
+    []
+  []
+[]
