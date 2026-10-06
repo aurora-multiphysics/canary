@@ -1,0 +1,68 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [TEAM_Problem_20]
+    requirement = 'The system shall reproduce TEAM Problem 20, computing the force on the steel '
+                  'centre pole of a coil-driven magnetic circuit with a non-linear H(curl) '
+                  'magnetostatic solve whose reluctivity follows the B-H curve given by the '
+                  'benchmark, and shall report the flux densities the benchmark asks to be compared'
+    [1000AT]
+      type = 'CSVDiff'
+      input = 'team20.i'
+      csvdiff = 'OutputData/TEAM20CSV.csv
+                 OutputData/TEAM20CSV_gap_points_0001.csv
+                 OutputData/TEAM20CSV_line_ab_0001.csv
+                 OutputData/TEAM20CSV_line_cd_0001.csv'
+      cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+      capabilities = 'mfem'
+      recover = false
+      restep = false
+      detail = 'at 1000 AT, where the steel is below the knee of its B-H curve,'
+    []
+    [3000AT]
+      type = 'CSVDiff'
+      input = 'team20.i'
+      csvdiff = 'OutputData/TEAM20CSV_3000AT.csv
+                 OutputData/TEAM20CSV_3000AT_gap_points_0001.csv
+                 OutputData/TEAM20CSV_3000AT_line_ab_0001.csv
+                 OutputData/TEAM20CSV_3000AT_line_cd_0001.csv'
+      cli_args = 'ampere_turns=3000 '
+                 'Outputs/ParaViewDataCollection/enable=false '
+                 'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM20CSV_3000AT'
+      capabilities = 'mfem'
+      recover = false
+      restep = false
+      detail = 'at 3000 AT, where the pole is driven into saturation,'
+    []
+    [4500AT]
+      type = 'CSVDiff'
+      input = 'team20.i'
+      csvdiff = 'OutputData/TEAM20CSV_4500AT.csv
+                 OutputData/TEAM20CSV_4500AT_gap_points_0001.csv
+                 OutputData/TEAM20CSV_4500AT_line_ab_0001.csv
+                 OutputData/TEAM20CSV_4500AT_line_cd_0001.csv'
+      cli_args = 'ampere_turns=4500 '
+                 'Outputs/ParaViewDataCollection/enable=false '
+                 'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM20CSV_4500AT'
+      capabilities = 'mfem'
+      recover = false
+      restep = false
+      detail = 'at 4500 AT,'
+    []
+    [5000AT]
+      type = 'CSVDiff'
+      input = 'team20.i'
+      csvdiff = 'OutputData/TEAM20CSV_5000AT.csv
+                 OutputData/TEAM20CSV_5000AT_gap_points_0001.csv
+                 OutputData/TEAM20CSV_5000AT_line_ab_0001.csv
+                 OutputData/TEAM20CSV_5000AT_line_cd_0001.csv'
+      cli_args = 'ampere_turns=5000 '
+                 'Outputs/ParaViewDataCollection/enable=false '
+                 'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM20CSV_5000AT'
+      capabilities = 'mfem'
+      recover = false
+      restep = false
+      detail = 'and at 5000 AT, the highest excitation the benchmark specifies.'
+    []
+  []
+[]
