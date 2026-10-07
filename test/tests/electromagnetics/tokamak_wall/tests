@@ -1,0 +1,54 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the tokamak wall induction example
+  # The two regression tests take 20 steps of 2 ms, through the ramp up, the flat
+  # top, the current quench and some of the decay after it. The verification against
+  # the filament model uses the default 0.25 ms step, which the heavy test runs.
+  [Tokamak_Wall_Induction]
+    type = 'CSVDiff'
+    input = 'tokamak_wall.i'
+    cli_args = 'dt=2e-3 end_time=0.04 Outputs/ParaViewDataCollection/enable=false
+                Outputs/CSV/file_base=OutputData/TokamakWall_short'
+    csvdiff = 'OutputData/TokamakWall_short.csv'
+    min_parallel = 8
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall compute the eddy currents induced in a toroidal conducting wall '
+                  'by a plasma current of arbitrary time dependence, using an H(curl) vector potential '
+                  'solve in the time domain whose source current density is supplied as a function '
+                  'of space and time and made discretely divergence free at every time step.'
+  []
+  [Tokamak_Wall_Induction_VDE]
+    type = 'CSVDiff'
+    input = 'tokamak_wall.i'
+    cli_args = "dt=2e-3 end_time=0.04 source_blocks='plasma vacuum'
+                plasma_current_source:vertical_displacement=0.08
+                Outputs/ParaViewDataCollection/enable=false
+                Outputs/CSV/file_base=OutputData/TokamakWall_VDE_short"
+    csvdiff = 'OutputData/TokamakWall_VDE_short.csv'
+    min_parallel = 8
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall compute the eddy currents induced in a toroidal conducting wall '
+                  'by a plasma current density that is not separable in space and time, a plasma '
+                  'that moves vertically before it is quenched, re-projecting the source at every '
+                  'time step.'
+  []
+  [Tokamak_Wall_Induction_verification]
+    type = 'CSVDiff'
+    input = 'tokamak_wall.i'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    csvdiff = 'OutputData/TokamakWall.csv'
+    min_parallel = 16
+    heavy = true
+    max_time = 3600
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce, at the default resolution of the tokamak wall '
+                  'induction example, the wall current, ohmic power and probe fields that are '
+                  'verified against an independent axisymmetric filament model.'
+  []
+[]
