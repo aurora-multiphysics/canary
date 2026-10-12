@@ -1,0 +1,26 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#TBD'
+  [torus_vessel]
+    requirement = 'The system shall compute eddy currents and Lorentz force densities in a toroidal '
+                  'conducting shell driven by an axisymmetric source field'
+    [source_conversion]
+      type = Exodiff
+      input = ramp_source.i
+      exodiff = ramp_source_out.e
+      detail = 'by converting gridded source fields to an ExodusII time series on the (R, Z) '
+               'half-plane,'
+    []
+    [loads]
+      type = CSVDiff
+      input = torus_vessel.i
+      csvdiff = torus_vessel_csv.csv
+      cli_args = 'Outputs/active=csv'
+      prereq = torus_vessel/source_conversion
+      detail = 'and by solving for the eddy currents in the shell and integrating its toroidal '
+               'current and radial and vertical loads.'
+      capabilities = 'mfem'
+      recover = false
+    []
+  []
+[]
