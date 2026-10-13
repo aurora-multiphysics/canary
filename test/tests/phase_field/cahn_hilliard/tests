@@ -1,0 +1,19 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the MFEM phase field work
+  [Cahn_Hilliard]
+    type = 'CSVDiff'
+    input = 'cahn_hilliard.i'
+    csvdiff = 'OutputData/CahnHilliard.csv
+               OutputData/CahnHilliard_c_line_0011.csv
+               OutputData/CahnHilliard_chemical_potential_line_0011.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    requirement = 'The system shall solve the Cahn-Hilliard equation for spinodal decomposition '
+                  'with the MFEM backend, as a coupled non-linear transient solve for the order '
+                  'parameter and the gradient energy part of the chemical potential, conserving '
+                  'the mean of the order parameter while the total free energy decreases'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+  []
+[]
