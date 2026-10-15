@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample14]
+    type = CSVDiff
+    input = ex14p.i
+    csvdiff = 'OutputData/ex14p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 14, a '
+                  'Poisson problem discretized with discontinuous Galerkin elements and the '
+                  'symmetric interior penalty method on the star mesh.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
