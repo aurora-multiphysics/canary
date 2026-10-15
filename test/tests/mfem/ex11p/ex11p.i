@@ -3,11 +3,9 @@
 # Computes the five lowest eigenmodes of the Laplacian, -div(grad(u)) = lambda u,
 # on the star mesh with homogeneous Dirichlet conditions on all boundaries. As in
 # ex11p, the mesh is refined twice in serial and once in parallel, and the
-# problem is discretized with first order H1 elements. MFEMEigenproblem applies
-# the Dirichlet conditions itself, on every external boundary, as ex11p does.
-# The eigenmodes are found with LOBPCG preconditioned by BoomerAMG, with the
-# settings of ex11p. The eigenvalues are compared against the values computed by
-# ex11p.
+# problem is discretized with first order H1 elements. The eigenmodes are found
+# with LOBPCG preconditioned by BoomerAMG, with the settings of ex11p. The
+# eigenvalues are compared against the values computed by ex11p.
 
 [Mesh]
   type = MFEMFileMesh
@@ -33,6 +31,14 @@
   [u]
     type = MFEMVariable
     fespace = H1FESpace
+  []
+[]
+
+[BCs]
+  [boundary]
+    type = MFEMScalarDirichletBC
+    variable = u
+    coefficient = 0
   []
 []
 

@@ -19,7 +19,7 @@ mass matrix. Each step of `ex11p` maps onto one object in the input:
 | `H1_FECollection` of order 1 | [MFEMScalarFESpace] with `fec_type = H1` and `fec_order = FIRST` |
 | `DiffusionIntegrator`, forming $A$ | [MFEMDiffusionKernel] |
 | `MassIntegrator`, forming $M$ | Formed by [MFEMEigenproblem] |
-| Dirichlet conditions on all external boundaries | Applied by [MFEMEigenproblem], so there is no `[BCs]` block |
+| `MarkExternalBoundaries()` and `EliminateEssentialBCDiag()` | [MFEMScalarDirichletBC] with `coefficient = 0` |
 | `nev = 5` | [MFEMEigenproblem] with `num_modes = 5` |
 | `HypreLOBPCG` preconditioned by `HypreBoomerAMG` | [MFEMHypreLOBPCG] preconditioned by [MFEMHypreBoomerAMG] |
 | `GetEigenvalues()` | [MFEMEigenvaluesPostprocessor] |
@@ -38,6 +38,8 @@ the MOOSE revision Canary is tested against.
 [MFEMFileMesh]: https://mooseframework.inl.gov/source/mfem/mesh/MFEMFileMesh.html
 
 [MFEMScalarFESpace]: https://mooseframework.inl.gov/source/mfem/fespaces/MFEMScalarFESpace.html
+
+[MFEMScalarDirichletBC]: https://mooseframework.inl.gov/source/mfem/bcs/MFEMScalarDirichletBC.html
 
 [MFEMDiffusionKernel]: https://mooseframework.inl.gov/source/mfem/kernels/MFEMDiffusionKernel.html
 
