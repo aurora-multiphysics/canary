@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample1]
+    type = CSVDiff
+    input = ex1p.i
+    csvdiff = 'OutputData/ex1p.csv'
+    requirement = 'The system shall reproduce the solution L2 norm of MFEM example 1, a Poisson '
+                  'problem with a unit source and zero Dirichlet conditions on the star mesh '
+                  'refined in serial and in parallel.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
