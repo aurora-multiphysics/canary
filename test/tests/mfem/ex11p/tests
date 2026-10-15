@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample11]
+    type = CSVDiff
+    input = ex11p.i
+    csvdiff = 'OutputData/ex11p_eigenvalues_0001.csv'
+    requirement = 'The system shall reproduce the five lowest eigenvalues of MFEM example 11, the '
+                  'Laplacian with homogeneous Dirichlet conditions on the star mesh, computed with '
+                  'LOBPCG preconditioned by BoomerAMG.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
