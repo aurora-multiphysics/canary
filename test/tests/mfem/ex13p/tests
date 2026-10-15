@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample13]
+    type = CSVDiff
+    input = ex13p.i
+    csvdiff = 'OutputData/ex13p_eigenvalues_0001.csv'
+    requirement = 'The system shall reproduce the five lowest nonzero eigenvalues of MFEM example 13, '
+                  'the Maxwell eigenproblem with perfectly conducting walls on the beam-tet mesh, '
+                  'computed with AME preconditioned by AMS.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
