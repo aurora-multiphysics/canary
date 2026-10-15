@@ -1,0 +1,3 @@
+time,interpolant_l2_error,projection_l2_error,solution_l2_error
+0,0,0,0
+1,0.034566558739678,0.03448503813487,0.034566558739678
