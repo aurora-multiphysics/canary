@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample22]
+    type = CSVDiff
+    input = ex22p.i
+    csvdiff = 'OutputData/ex22p.csv'
+    requirement = 'The system shall reproduce the L2 error of MFEM example 22, a complex-valued '
+                  'damped harmonic oscillator with a known exact solution, solved with H1 elements '
+                  'on the inline-quad mesh.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
