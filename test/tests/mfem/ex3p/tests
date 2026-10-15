@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample3]
+    type = CSVDiff
+    input = ex3p.i
+    csvdiff = 'OutputData/ex3p.csv'
+    requirement = 'The system shall reproduce the L2 error of MFEM example 3, a definite Maxwell '
+                  'problem with a manufactured solution, solved with Nedelec elements on the beam '
+                  'mesh.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
