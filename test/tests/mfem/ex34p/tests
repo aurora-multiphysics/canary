@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample34]
+    type = CSVDiff
+    input = ex34p.i
+    csvdiff = 'OutputData/ex34p.csv'
+    requirement = 'The system shall reproduce the L2 norms of the vector potential and magnetic flux of '
+                  'MFEM example 34, a magnetostatic problem driven by a current density computed on a '
+                  'conductor submesh in sub-applications and transferred to the full mesh.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
