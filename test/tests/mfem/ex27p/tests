@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample27]
+    type = CSVDiff
+    input = ex27p.i
+    csvdiff = 'OutputData/ex27p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 27, a '
+                  'Laplace problem on a periodic mesh with Dirichlet, Neumann, Robin and natural '
+                  'boundary conditions on different parts of the boundary.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
