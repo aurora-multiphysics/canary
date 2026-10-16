@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample39]
+    type = CSVDiff
+    input = ex39p.i
+    csvdiff = 'OutputData/ex39p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 39, a '
+                  'Poisson problem whose coefficients, source and boundary conditions are restricted '
+                  'to regions selected by the names they have in a Gmsh mesh file.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
