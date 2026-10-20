@@ -23,13 +23,24 @@ ARG MOOSE_MPI_IMAGE=ghcr.io/idaholab/moose-containers/moose-mpi-ubuntu24-gcc:24.
 FROM ${MOOSE_MPI_IMAGE} AS source
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG MOOSE_REVISION
+# MOOSE marks the mfem and conduit submodules 'update = none', which a plain
+# 'git submodule update' silently skips, so they need --checkout. Each
+# submodule is then checked for content so that one that is skipped fails here
+# rather than in its build step.
 RUN test -n "$MOOSE_REVISION" && \
     git clone --filter=blob:none --no-checkout https://github.com/idaholab/moose.git /moose && \
     git -C /moose checkout --quiet "$MOOSE_REVISION" && \
-    git -C /moose submodule update --init --depth 1 \
-        petsc framework/contrib/mfem && \
+    git -C /moose submodule update --init --depth 1 petsc && \
     git -C /moose submodule update --init --recursive --depth 1 \
-        libmesh framework/contrib/wasp framework/contrib/conduit
+        libmesh framework/contrib/wasp && \
+    git -C /moose submodule update --init --checkout --depth 1 framework/contrib/mfem && \
+    git -C /moose submodule update --init --checkout --recursive --depth 1 \
+        framework/contrib/conduit && \
+    for submodule in petsc libmesh framework/contrib/wasp framework/contrib/mfem \
+        framework/contrib/conduit; do \
+        test -n "$(ls -A "/moose/${submodule}")" || \
+            { echo "Submodule ${submodule} was not checked out"; exit 1; }; \
+    done
 
 # hadolint ignore=DL3006
 FROM ${MOOSE_MPI_IMAGE}
