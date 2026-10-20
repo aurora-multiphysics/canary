@@ -108,9 +108,12 @@ RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose,rw \
 ENV CONDUIT_DIR=/opt/conduit \
     MFEM_DIR=/opt/mfem
 
-# Python environment, following apptainer/moose-dev.def
-ARG PYTHON_VERSION=3.14.7
-RUN --mount=type=bind,from=source,source=/moose/requirements.txt,target=/root/requirements.txt \
+# Python environment, following apptainer/moose-dev.def, at the python version
+# that it pins
+RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose \
+    PYTHON_VERSION=$(sed -n 's/^ *PYTHON_VERSION=\([0-9.]*\) *$/\1/p' \
+        /root/build/moose/apptainer/moose-dev.def) && \
+    test -n "$PYTHON_VERSION" && \
     mkdir -p /opt/uv/bin /opt/uv/data && \
     curl -LsSf https://astral.sh/uv/install.sh | \
         env XDG_DATA_HOME=/opt/uv/data XDG_BIN_HOME=/opt/uv/bin UV_NO_MODIFY_PATH=1 sh && \
@@ -122,5 +125,5 @@ RUN --mount=type=bind,from=source,source=/moose/requirements.txt,target=/root/re
         "${UV_PYTHON_DIR}/bin/python${PYTHON_VERSION%.*}-config" /opt/python/bin/ && \
     ln -s "${UV_PYTHON_DIR}/include" /opt/python/ && \
     UV_PYTHON=/opt/python UV_NO_CACHE=1 UV_LINK_MODE=copy \
-        /opt/uv/bin/uv pip install -r /root/requirements.txt
+        /opt/uv/bin/uv pip install -r /root/build/moose/requirements.txt
 ENV PATH=/opt/python/bin:${PATH}
