@@ -1,0 +1,215 @@
+---
+name: MOOSE container
+
+# Builds the MOOSE container used by the other workflows, from the head of
+# MOOSE master, on top of IDAHO's latest compiler and MPI image. Two images are
+# pushed to GHCR, tagged <date>-<MOOSE revision> (or pr-<number> for a pull
+# request):
+#
+#   canary-moose-dev  MOOSE's dependencies (docker/moose-dev)
+#   canary-moose      MOOSE itself, configured with MFEM (docker/moose)
+#
+# Both are built in their own job so that each stays within the six hour limit
+# for GitHub-hosted runners. 'latest' is only moved once the new image has
+# passed MOOSE's MFEM tests and Canary's own tests.
+
+on:
+  schedule:
+    # Every Monday at 02:00 UTC
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      moose-revision:
+        description: MOOSE commit, branch or tag to build
+        required: false
+        default: master
+  push:
+    branches:
+      - main
+    paths:
+      - docker/**
+      - .github/workflows/moose-container.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - docker/**
+      - .github/workflows/moose-container.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moose-container-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MOOSE_DEV_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose-dev
+  MOOSE_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose
+
+jobs:
+  prepare:
+    name: Prepare
+    # Pull requests from forks cannot push to the registry
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.prepare.outputs.revision }}
+      tag: ${{ steps.prepare.outputs.tag }}
+    steps:
+      - name: Determine MOOSE revision and image tag
+        id: prepare
+        env:
+          REQUESTED_REVISION: ${{ inputs.moose-revision || 'master' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git init --quiet moose
+          git -C moose fetch --quiet --depth 1 \
+            https://github.com/idaholab/moose.git "$REQUESTED_REVISION"
+          revision=$(git -C moose rev-parse FETCH_HEAD)
+          if [ -n "$PR_NUMBER" ]; then
+            tag="pr-${PR_NUMBER}"
+          else
+            tag="$(date -u +%Y.%m.%d)-${revision:0:7}"
+          fi
+          echo "MOOSE revision: ${revision}"
+          echo "Image tag: ${tag}"
+          echo "revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  build-moose-dev:
+    name: Build canary-moose-dev
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/moose-dev
+          push: true
+          tags: ${{ env.MOOSE_DEV_IMAGE }}:${{ needs.prepare.outputs.tag }}
+          build-args: |
+            MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.description=MOOSE dependencies, including MFEM, for Canary
+            org.opencontainers.image.version=${{ needs.prepare.outputs.revision }}
+
+  build-moose:
+    name: Build canary-moose
+    needs: [prepare, build-moose-dev]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/moose
+          push: true
+          tags: ${{ env.MOOSE_IMAGE }}:${{ needs.prepare.outputs.tag }}
+          build-args: |
+            MOOSE_DEV_IMAGE=${{ env.MOOSE_DEV_IMAGE }}:${{ needs.prepare.outputs.tag }}
+            MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.description=MOOSE, configured with MFEM, for Canary
+            org.opencontainers.image.version=${{ needs.prepare.outputs.revision }}
+
+  test:
+    name: Test canary-moose
+    needs: [prepare, build-moose]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+      # Pulled the same way as in the other workflows, so this also checks
+      # that apptainer can use the image
+      - name: Pull MOOSE apptainer container
+        env:
+          APPTAINER_DOCKER_USERNAME: ${{ github.actor }}
+          APPTAINER_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          MOOSE_CONTAINER: docker://${{ env.MOOSE_IMAGE }}:${{ needs.prepare.outputs.tag }}
+        run: apptainer build moose.sif "$MOOSE_CONTAINER"
+      - name: Run MOOSE MFEM tests
+        # $RUNNER_TEMP has to be expanded by the shell inside the container
+        # rather than by the runner, so it is deliberately single quoted.
+        run: |
+          # shellcheck disable=SC2016
+          apptainer exec moose.sif bash -c '
+            set -e
+            moose_test-opt --check-capabilities mfem
+            cd "$RUNNER_TEMP"
+            moose_test-opt --copy-inputs tests
+            cd moose_test/tests
+            moose_test-opt --run -j 4 --re mfem'
+      - name: Run Canary tests
+        run: apptainer exec moose.sif bash -c "export MOOSE_DIR=/opt/moose && ./run_tests -j 4"
+
+  release:
+    name: Tag latest
+    needs: [prepare, test]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Tag images as latest
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          for image in "$MOOSE_DEV_IMAGE" "$MOOSE_IMAGE"; do
+            docker buildx imagetools create --tag "${image}:latest" "${image}:${TAG}"
+          done
