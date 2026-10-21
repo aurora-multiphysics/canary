@@ -21,16 +21,20 @@ jobs:
   build-docs:
     runs-on: ubuntu-latest
     name: BuildDocs
+    permissions:
+      contents: read
+      packages: read
     env:
       PRCOMMITSHA: ${{ github.event.pull_request.head.sha }}
       PRREPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-      MOOSE_CONTAINER: oras://ghcr.io/idaholab/apptainer/moose-openmpi-x86_64:2026.08.12-167ee97
+      # Built weekly by moose-container.yml
+      MOOSE_CONTAINER: docker://ghcr.io/aurora-multiphysics/canary-moose:latest
       # Where MOOSE was built when the container was assembled. Every object in
       # the syntax dump records its own .C file under this path, and MooseDocs
       # discards any object whose source file is missing, so the source tree has
       # to be mounted here. If a container bump moves it, the build log names the
       # new path ("The supplied 'source' file does not exist: ...").
-      MOOSE_BUILD_DIR: /root/build/moose
+      MOOSE_BUILD_DIR: /opt/src/moose
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,17 +43,20 @@ jobs:
         with:
           apptainer-version: 1.3.6
       - name: Pull MOOSE apptainer container
-        run: apptainer build moose-openmpi.sif "$MOOSE_CONTAINER"
+        env:
+          APPTAINER_DOCKER_USERNAME: ${{ github.actor }}
+          APPTAINER_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: apptainer build moose.sif "$MOOSE_CONTAINER"
       # The container ships an *installed* MOOSE (/opt/moose/{bin,include,lib,
       # share}), which carries no framework/doc content, and MooseDocs runs
       # 'git ls-files' on MOOSE_DIR when it is imported. So the docs build needs
       # a MOOSE source checkout in addition to the container. The revision is
-      # taken from the container tag so the two always agree.
+      # the one the container records in MOOSE_REVISION, so the two always agree.
       - name: Checkout MOOSE source
         run: |
           git clone --filter=blob:none --no-checkout \
             https://github.com/idaholab/moose.git moose
-          git -C moose checkout "${MOOSE_CONTAINER##*-}"
+          git -C moose checkout "$(apptainer exec moose.sif printenv MOOSE_REVISION)"
           # MooseDocs initialises the large_media submodule (several GB) as it
           # is imported. Canary references none of that content, so drop the
           # gitlink from the index; 'git submodule status' then stops reporting
@@ -68,7 +75,7 @@ jobs:
         run: |
           apptainer instance start \
             --bind "$PWD/moose:$MOOSE_BUILD_DIR" \
-            moose-openmpi.sif moose_instance
+            moose.sif moose_instance
       - name: Checkout Canary
         run: apptainer exec instance://moose_instance bash -c "git clone https://github.com/${PRREPOSITORY:-$GITHUB_REPOSITORY}.git && cd canary && git checkout ${PRCOMMITSHA:-$GITHUB_SHA}"
       - name: Build documentation
