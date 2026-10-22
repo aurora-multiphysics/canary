@@ -11,10 +11,12 @@
 #
 # Required build arguments:
 #
-#   MOOSE_REVISION: MOOSE commit whose submodules and build scripts are used
+#   MOOSE_REVISION:  MOOSE commit whose submodules and build scripts are used
+#   MOOSE_MPI_IMAGE: compiler and MPI image to build on: the ubuntu24_gcc image
+#                    that apptainer/mpi.def pins by digest at MOOSE_REVISION
 #
 
-ARG MOOSE_MPI_IMAGE=ghcr.io/idaholab/moose-containers/moose-mpi-ubuntu24-gcc:24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261008
+ARG MOOSE_MPI_IMAGE
 
 # MOOSE source. The build steps below mount this read-write and each script
 # checks out the submodule it builds; anything they write to it is discarded

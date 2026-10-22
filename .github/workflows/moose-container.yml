@@ -71,6 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       revision: ${{ steps.prepare.outputs.revision }}
+      mpi-image: ${{ steps.prepare.outputs.mpi-image }}
       tag: ${{ steps.prepare.outputs.tag }}
       release-tag: ${{ steps.prepare.outputs.release-tag }}
     steps:
@@ -87,6 +88,11 @@ jobs:
             https://github.com/idaholab/moose.git "$REQUESTED_REVISION"
           # ^{commit} resolves an annotated tag to the commit it points to
           revision=$(git -C moose rev-parse 'FETCH_HEAD^{commit}')
+          # The compiler and MPI image that MOOSE builds its own containers
+          # from at this revision, pinned by digest
+          mpi_image=$(git -C moose show FETCH_HEAD:apptainer/mpi.def |
+            sed -n 's/^ *"ubuntu24_gcc": *"\([^"]*\)".*/\1/p')
+          test -n "$mpi_image"
           if [ -n "$PR_NUMBER" ]; then
             tag="pr-${PR_NUMBER}"
           else
@@ -102,10 +108,12 @@ jobs:
             release_tag=latest
           fi
           echo "MOOSE revision: ${revision}"
+          echo "MPI image: ${mpi_image}"
           echo "Image tag: ${tag}"
           echo "Release tag: ${release_tag:-none}"
           {
             echo "revision=${revision}"
+            echo "mpi-image=${mpi_image}"
             echo "tag=${tag}"
             echo "release-tag=${release_tag}"
           } >> "$GITHUB_OUTPUT"
@@ -141,6 +149,7 @@ jobs:
           tags: ${{ env.MOOSE_DEV_IMAGE }}:${{ needs.prepare.outputs.tag }}
           build-args: |
             MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
+            MOOSE_MPI_IMAGE=${{ needs.prepare.outputs.mpi-image }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.description=MOOSE dependencies, including MFEM, for Canary
