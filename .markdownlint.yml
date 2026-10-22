@@ -28,6 +28,7 @@ MD026:
 MD029: false                  # Ordered list item prefix
 MD033: false                  # Allow inline HTML
 MD041: false                  # Allow MOOSE configuration data before first heading
+MD051: false                  # MooseDocs heading IDs ("## Title id=foo") are not GitHub-style slugs
 
 #################
 # Rules by tags #
