@@ -1,0 +1,10 @@
+---
+# Hadolint config, used by super-linter through .github/linters/.hadolint.yaml
+
+failure-threshold: warning
+
+ignored:
+  # hadolint 2.15 checks a RUN as POSIX sh, despite the bash SHELL, once an ARG
+  # or ENV follows the SHELL instruction, so bash features are reported there
+  - SC3001 # process substitution
+  - SC3053 # indirect expansion
