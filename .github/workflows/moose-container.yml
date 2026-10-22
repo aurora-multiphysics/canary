@@ -2,27 +2,28 @@
 name: MOOSE container
 
 # Builds MOOSE containers on top of IDAHO's compiler and MPI image. Two images
-# are pushed to GHCR, tagged <date>-<MOOSE revision> (or pr-<number> for a
-# pull request):
+# are pushed to GHCR:
 #
 #   canary-moose-dev  MOOSE's dependencies (docker/moose-dev)
 #   canary-moose      MOOSE itself, configured with MFEM (docker/moose)
 #
-# Which MOOSE is built, and the extra tag it gets once it has passed MOOSE's
-# MFEM tests and Canary's own tests, depends on what started the run:
+# Which MOOSE is built, and how it is tagged once it has passed MOOSE's MFEM
+# tests and Canary's own tests, depends on what started the run:
 #
-#   push to main      the pinned MOOSE_REVISION below, tagged 'latest', which
-#                     is the image that the other workflows use
-#   weekly schedule   the head of MOOSE next, tagged 'next', to show whether
-#                     MOOSE_REVISION can be moved on
-#   manual run        MOOSE_REVISION, tagged 'latest' if run from main, or the
-#                     moose-revision input, with no extra tag
-#   pull request      MOOSE_REVISION, with no extra tag
+#   push to main      the pinned MOOSE_REVISION below, tagged
+#                     <date>-<MOOSE revision> and 'latest', which is the image
+#                     meant to replace IDAHO's in the other workflows
+#   weekly schedule   the head of MOOSE next, tagged <date>-<MOOSE revision>
+#                     and 'next', to show whether MOOSE_REVISION can be moved on
+#   manual run        MOOSE_REVISION, tagged as for a push if run from main, or
+#                     the moose-revision input, tagged <date>-<MOOSE revision>;
+#                     from another branch, tagged <branch>-<MOOSE revision>
+#   pull request      MOOSE_REVISION, tagged pr-<number>
 #
 # The two images are built in their own jobs so that each stays within the
-# six hour limit for GitHub-hosted runners. The jobs pass the images to each
-# other by digest rather than by tag, since another run of the same revision
-# on the same day, from a different branch, pushes to the same tags.
+# six hour limit for GitHub-hosted runners. The build jobs push the images by
+# digest only, and pass them on that way; nothing is tagged until the tests
+# have passed, so that no tag points at an untested image.
 
 on:
   schedule:
@@ -56,9 +57,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # MOOSE revision that the other workflows use: the head of MOOSE next on
-  # 2026-10-20. Update it, ideally to a weekly 'next' build that passed, to move
-  # Canary onto a newer MOOSE.
+  # MOOSE revision that is tagged latest: the head of MOOSE next on 2026-10-20.
+  # Update it, ideally to a weekly 'next' build that passed, to move Canary onto
+  # a newer MOOSE. It has to be a full commit SHA; that of an image is in its
+  # org.opencontainers.image.version label and its MOOSE_REVISION variable.
   MOOSE_REVISION: 39ac5ed5fc10f4996af4496cc1c5ac4cd725e433
   MOOSE_DEV_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose-dev
   MOOSE_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose
@@ -85,6 +87,11 @@ jobs:
             || inputs.moose-revision || env.MOOSE_REVISION }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          # Otherwise no build of it could ever be tagged latest
+          if ! [[ "$MOOSE_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::MOOSE_REVISION must be a full 40 character commit SHA"
+            exit 1
+          fi
           git init --quiet moose
           git -C moose fetch --quiet --depth 1 \
             https://github.com/idaholab/moose.git "$REQUESTED_REVISION"
@@ -97,8 +104,13 @@ jobs:
           test -n "$mpi_image"
           if [ -n "$PR_NUMBER" ]; then
             tag="pr-${PR_NUMBER}"
-          else
+          elif [ "$GITHUB_REF" = refs/heads/main ]; then
             tag="$(date -u +%Y.%m.%d)-${revision:0:7}"
+          else
+            # A manual run from another branch must not replace an image
+            # built from main, so it is tagged by branch instead of by date
+            branch=$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9_.-' '-')
+            tag="${branch:0:100}-${revision:0:7}"
           fi
           # Only builds of the pinned revision from main become latest, and
           # only the weekly builds of MOOSE next become next
@@ -150,8 +162,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: docker/moose-dev
-          push: true
-          tags: ${{ env.MOOSE_DEV_IMAGE }}:${{ needs.prepare.outputs.tag }}
+          tags: ${{ env.MOOSE_DEV_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          # Kept per MOOSE revision, so that a change to docker/moose alone,
+          # or a re-run, does not rebuild the dependencies. mode=max also keeps
+          # the source stage, which every build step mounts.
+          cache-from: type=registry,ref=${{ env.MOOSE_DEV_IMAGE }}:buildcache-${{ needs.prepare.outputs.revision }}
+          cache-to: type=registry,ref=${{ env.MOOSE_DEV_IMAGE }}:buildcache-${{ needs.prepare.outputs.revision }},mode=max
           build-args: |
             MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
             MOOSE_MPI_IMAGE=${{ needs.prepare.outputs.mpi-image }}
@@ -190,8 +207,10 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: docker/moose
-          push: true
-          tags: ${{ env.MOOSE_IMAGE }}:${{ needs.prepare.outputs.tag }}
+          tags: ${{ env.MOOSE_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.MOOSE_IMAGE }}:buildcache-${{ needs.prepare.outputs.revision }}
+          cache-to: type=registry,ref=${{ env.MOOSE_IMAGE }}:buildcache-${{ needs.prepare.outputs.revision }}
           build-args: |
             MOOSE_DEV_IMAGE=${{ env.MOOSE_DEV_IMAGE }}@${{ needs.build-moose-dev.outputs.digest }}
             MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
@@ -210,6 +229,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Apptainer keeps the pulled layers, the unpacked image and the SIF
+      # built from it on disk at the same time
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
       - name: Setup Apptainer
         uses: eWaterCycle/setup-apptainer@v2
         with:
@@ -238,9 +263,8 @@ jobs:
         run: apptainer exec moose.sif bash -c "export MOOSE_DIR=/opt/moose && ./run_tests -j 4"
 
   release:
-    name: Tag ${{ needs.prepare.outputs.release-tag }}
+    name: Tag images
     needs: [prepare, build-moose-dev, build-moose, test]
-    if: needs.prepare.outputs.release-tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -252,14 +276,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      # The runner's own buildx plugin is enough for imagetools, which works
+      # on the registry alone
       - name: Tag images
         env:
           MOOSE_DEV_DIGEST: ${{ needs.build-moose-dev.outputs.digest }}
           MOOSE_DIGEST: ${{ needs.build-moose.outputs.digest }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release-tag }}
         run: |
           for image in "${MOOSE_DEV_IMAGE}@${MOOSE_DEV_DIGEST}" "${MOOSE_IMAGE}@${MOOSE_DIGEST}"; do
-            docker buildx imagetools create --tag "${image%@*}:${RELEASE_TAG}" "$image"
+            tags=(--tag "${image%@*}:${TAG}")
+            if [ -n "$RELEASE_TAG" ]; then
+              tags+=(--tag "${image%@*}:${RELEASE_TAG}")
+            fi
+            docker buildx imagetools create "${tags[@]}" "$image"
           done

@@ -21,9 +21,10 @@ ARG MOOSE_JOBS=4
 ARG MOOSE_REVISION
 
 # The source tree is removed once MOOSE is installed, but every object in the
-# syntax dump records its .C file under it, so the documentation workflow
-# mounts a checkout of MOOSE_REVISION at the same place. The directory is left
-# in place as the mount point.
+# syntax dump records its .C file under it, so a workflow that builds
+# documentation with this image has to mount a checkout of MOOSE_REVISION
+# (which the image sets) at the same place. The directory is left in place as
+# the mount point.
 # hadolint ignore=DL3003
 RUN test -n "$MOOSE_REVISION" && \
     git clone --filter=blob:none --no-checkout https://github.com/idaholab/moose.git /opt/src/moose && \

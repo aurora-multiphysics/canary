@@ -21,13 +21,20 @@ ARG MOOSE_MPI_IMAGE
 # MOOSE source. The build steps below mount this read-write and each script
 # checks out the submodule it builds; anything they write to it is discarded
 # with the step, so none of the source or build trees end up in the image.
+# The submodules that are built are marked shallow, which the scripts' 'git
+# submodule update' then follows; the submodules nested in them are still
+# cloned in full.
 # hadolint ignore=DL3006
 FROM ${MOOSE_MPI_IMAGE} AS source
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG MOOSE_REVISION
 RUN test -n "$MOOSE_REVISION" && \
     git clone --filter=blob:none --no-checkout https://github.com/idaholab/moose.git /moose && \
-    git -C /moose checkout --quiet "$MOOSE_REVISION"
+    git -C /moose checkout --quiet "$MOOSE_REVISION" && \
+    for submodule in petsc libmesh framework/contrib/wasp framework/contrib/conduit \
+        framework/contrib/mfem; do \
+        git -C /moose config --file .gitmodules "submodule.${submodule}.shallow" true; \
+    done
 
 # hadolint ignore=DL3006
 FROM ${MOOSE_MPI_IMAGE}
@@ -39,11 +46,31 @@ ARG MARCH=x86-64-v3
 # The base image records its environment in /moose_env.sh and
 # /opt/mpich/env.sh, which nothing sources outside of apptainer, so set it
 # here. MPICH is used rather than OpenMPI, as for MOOSE's own Ubuntu images.
+# Docker cannot take ENV from a script, so the variables that the two scripts
+# set are recorded first and checked against the ENV below, so that a newer
+# base image that changes them fails here rather than building with the wrong
+# compiler or libraries.
+# hadolint ignore=SC1091
+RUN comm -13 <(env | sort) \
+        <(. /moose_env.sh && unset MOOSE_OPENMPI_DIR && . /opt/mpich/env.sh && env | sort) \
+        > /tmp/base_env
 ENV PATH=/opt/mpich/bin:/opt/gcc/bin:/opt/valgrind/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LD_LIBRARY_PATH=/opt/mpich/lib \
     MANPATH=/opt/mpich/share/man \
     MOOSE_MPICH_DIR=/opt/mpich \
     CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77
+# The scripts append ':' to empty search paths, which is dropped from the ENV
+# since an empty entry in LD_LIBRARY_PATH means the current directory
+RUN status=0 && \
+    while IFS='=' read -r name value; do \
+        [ "$name" = _ ] && continue; \
+        if [ "${!name%:}" != "${value%:}" ]; then \
+            echo "${name} is '${!name}' here, but '${value}' in the base image"; \
+            status=1; \
+        fi; \
+    done < /tmp/base_env && \
+    rm /tmp/base_env && \
+    exit "$status"
 
 # Packages from apptainer/mpi.def
 # hadolint ignore=DL3008
