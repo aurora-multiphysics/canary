@@ -6,11 +6,18 @@ if os.path.exists(os.path.abspath(os.path.join('moose', 'framework', 'Makefile')
   MOOSE_DIR = os.path.abspath('moose')
 MOOSE_DIR = os.environ.get('MOOSE_DIR', MOOSE_DIR)
 
-sys.path.append(os.path.join(MOOSE_DIR, 'python'))
+# An installed MOOSE (such as /opt/moose in the CI container) keeps its python
+# tree in share/moose rather than at the top level. The TestHarness needs to be
+# told where it is, as it otherwise looks for csvdiff.py and other utilities
+# in MOOSE_DIR/python.
+MOOSE_PYTHON = os.path.join(MOOSE_DIR, 'python')
+if not os.path.isdir(MOOSE_PYTHON):
+  MOOSE_PYTHON = os.path.join(MOOSE_DIR, 'share', 'moose', 'python')
+sys.path.append(MOOSE_PYTHON)
 
 print('MOOSE directory: ', MOOSE_DIR)
 
 os.environ['PATH'] = os.path.join(MOOSE_DIR, 'test') + os.pathsep + os.environ['PATH']
 
 from TestHarness import TestHarness
-TestHarness.buildAndRun(sys.argv, 'moose_test', MOOSE_DIR)
+TestHarness.buildAndRun(sys.argv, 'moose_test', MOOSE_DIR, moose_python=MOOSE_PYTHON)
