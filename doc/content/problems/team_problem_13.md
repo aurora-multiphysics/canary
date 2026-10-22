@@ -505,11 +505,7 @@ above but is not a test and is left off the figures, there being no measurements
 
 ## References id=references
 
-<!-- textlint-disable terminology -->
-
-- T. Nakata, N. Takahashi and K. Fujiwara, *Summary of results for benchmark problem 13 (3-D non-linear
+- T. Nakata, N. Takahashi and K. Fujiwara, *Summary of results for benchmark problem 13 (3D non-linear
   magnetostatic model)*, COMPEL, 11, 3, 345 (1992).
 - [Problem statement](https://www.compumag.org/wp/wp-content/uploads/2018/06/problem13.pdf) - the geometry,
   the B-H curve, the measured flux densities and the reporting tables used above.
-
-<!-- textlint-enable terminology -->
