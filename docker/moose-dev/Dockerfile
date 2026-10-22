@@ -16,31 +16,16 @@
 
 ARG MOOSE_MPI_IMAGE=ghcr.io/idaholab/moose-containers/moose-mpi-ubuntu24-gcc:24.04-gcc14.2.0-mpich5.0.2-openmpi5.0.11-20261008
 
-# MOOSE source and the dependency submodules. The build steps below mount this
-# read-write; anything they write to it is discarded with the step, so none of
-# the source or build trees end up in the image.
+# MOOSE source. The build steps below mount this read-write and each script
+# checks out the submodule it builds; anything they write to it is discarded
+# with the step, so none of the source or build trees end up in the image.
 # hadolint ignore=DL3006
 FROM ${MOOSE_MPI_IMAGE} AS source
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG MOOSE_REVISION
-# MOOSE marks the mfem and conduit submodules 'update = none', which a plain
-# 'git submodule update' silently skips, so they need --checkout. Each
-# submodule is then checked for content so that one that is skipped fails here
-# rather than in its build step.
 RUN test -n "$MOOSE_REVISION" && \
     git clone --filter=blob:none --no-checkout https://github.com/idaholab/moose.git /moose && \
-    git -C /moose checkout --quiet "$MOOSE_REVISION" && \
-    git -C /moose submodule update --init --depth 1 petsc && \
-    git -C /moose submodule update --init --recursive --depth 1 \
-        libmesh framework/contrib/wasp && \
-    git -C /moose submodule update --init --checkout --depth 1 framework/contrib/mfem && \
-    git -C /moose submodule update --init --checkout --recursive --depth 1 \
-        framework/contrib/conduit && \
-    for submodule in petsc libmesh framework/contrib/wasp framework/contrib/mfem \
-        framework/contrib/conduit; do \
-        test -n "$(ls -A "/moose/${submodule}")" || \
-            { echo "Submodule ${submodule} was not checked out"; exit 1; }; \
-    done
+    git -C /moose checkout --quiet "$MOOSE_REVISION"
 
 # hadolint ignore=DL3006
 FROM ${MOOSE_MPI_IMAGE}
@@ -78,7 +63,6 @@ RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose,rw \
     cd /root/build/moose && \
     OPTFLAGS="-O2 -march=${MARCH} -mtune=generic" && \
     PETSC_PREFIX=/opt/petsc ./scripts/update_and_rebuild_petsc.sh \
-        --skip-submodule-update \
         --with-cc="$CC" --with-cxx="$CXX" --with-fc="$FC" \
         COPTFLAGS="$OPTFLAGS" CXXOPTFLAGS="$OPTFLAGS" FOPTFLAGS="$OPTFLAGS" && \
     cd petsc && \
@@ -90,7 +74,6 @@ RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose,rw \
     OPTFLAGS="-march=${MARCH} -mtune=generic" && \
     LIBMESH_DIR=/opt/libmesh METHODS=opt \
         /root/build/moose/scripts/update_and_rebuild_libmesh.sh \
-        --skip-submodule-update \
         CFLAGS="$OPTFLAGS" CXXFLAGS="$OPTFLAGS" FCFLAGS="$OPTFLAGS" \
         libmesh_CFLAGS="$OPTFLAGS" libmesh_CXXFLAGS="$OPTFLAGS" libmesh_FCFLAGS="$OPTFLAGS"
 ENV LIBMESH_DIR=/opt/libmesh
@@ -100,21 +83,22 @@ ENV LIBMESH_DIR=/opt/libmesh
 RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose,rw \
     CC=gcc CXX=g++ FC=gfortran F90=gfortran F77=gfortran WASP_PREFIX=/opt/wasp \
         /root/build/moose/scripts/update_and_rebuild_wasp.sh \
-        --skip-submodule-update \
         -DCMAKE_CXX_FLAGS="-march=${MARCH} -mtune=generic"
 ENV WASP_DIR=/opt/wasp \
     PATH=/opt/wasp/bin:${PATH}
 
-# Conduit and MFEM, following apptainer/moose-dev.def
+# Conduit and MFEM, following apptainer/moose-dev.def. Unlike the other
+# scripts, update_and_rebuild_mfem.sh updates its submodule from the current
+# directory rather than from MOOSE's.
+# hadolint ignore=DL3003
 RUN --mount=type=bind,from=source,source=/moose,target=/root/build/moose,rw \
+    cd /root/build/moose && \
     OPTFLAGS="-march=${MARCH} -mtune=generic" && \
     CONDUIT_DIR=/opt/conduit \
         /root/build/moose/scripts/update_and_rebuild_conduit.sh \
-        --skip-submodule-update \
         -DCMAKE_C_FLAGS="$OPTFLAGS" -DCMAKE_CXX_FLAGS="$OPTFLAGS" && \
     MPIR_CVAR_ENABLE_GPU=0 CONDUIT_DIR=/opt/conduit MFEM_DIR=/opt/mfem METHODS=opt \
         /root/build/moose/scripts/update_and_rebuild_mfem.sh \
-        --skip-submodule-update \
         -DCMAKE_C_FLAGS="$OPTFLAGS" -DCMAKE_CXX_FLAGS="$OPTFLAGS"
 ENV CONDUIT_DIR=/opt/conduit \
     MFEM_DIR=/opt/mfem
