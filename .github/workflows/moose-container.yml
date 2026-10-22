@@ -20,7 +20,9 @@ name: MOOSE container
 #   pull request      MOOSE_REVISION, with no extra tag
 #
 # The two images are built in their own jobs so that each stays within the
-# six hour limit for GitHub-hosted runners.
+# six hour limit for GitHub-hosted runners. The jobs pass the images to each
+# other by digest rather than by tag, since another run of the same revision
+# on the same day, from a different branch, pushes to the same tags.
 
 on:
   schedule:
@@ -126,6 +128,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -142,6 +146,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: docker/moose-dev
@@ -163,6 +168,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -179,13 +186,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: docker/moose
           push: true
           tags: ${{ env.MOOSE_IMAGE }}:${{ needs.prepare.outputs.tag }}
           build-args: |
-            MOOSE_DEV_IMAGE=${{ env.MOOSE_DEV_IMAGE }}:${{ needs.prepare.outputs.tag }}
+            MOOSE_DEV_IMAGE=${{ env.MOOSE_DEV_IMAGE }}@${{ needs.build-moose-dev.outputs.digest }}
             MOOSE_REVISION=${{ needs.prepare.outputs.revision }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -212,7 +220,7 @@ jobs:
         env:
           APPTAINER_DOCKER_USERNAME: ${{ github.actor }}
           APPTAINER_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          MOOSE_CONTAINER: docker://${{ env.MOOSE_IMAGE }}:${{ needs.prepare.outputs.tag }}
+          MOOSE_CONTAINER: docker://${{ env.MOOSE_IMAGE }}@${{ needs.build-moose.outputs.digest }}
         run: apptainer build moose.sif "$MOOSE_CONTAINER"
       - name: Run MOOSE MFEM tests
         # $RUNNER_TEMP has to be expanded by the shell inside the container
@@ -231,7 +239,7 @@ jobs:
 
   release:
     name: Tag ${{ needs.prepare.outputs.release-tag }}
-    needs: [prepare, test]
+    needs: [prepare, build-moose-dev, build-moose, test]
     if: needs.prepare.outputs.release-tag != ''
     runs-on: ubuntu-latest
     permissions:
@@ -248,9 +256,10 @@ jobs:
         uses: docker/setup-buildx-action@v4
       - name: Tag images
         env:
-          TAG: ${{ needs.prepare.outputs.tag }}
+          MOOSE_DEV_DIGEST: ${{ needs.build-moose-dev.outputs.digest }}
+          MOOSE_DIGEST: ${{ needs.build-moose.outputs.digest }}
           RELEASE_TAG: ${{ needs.prepare.outputs.release-tag }}
         run: |
-          for image in "$MOOSE_DEV_IMAGE" "$MOOSE_IMAGE"; do
-            docker buildx imagetools create --tag "${image}:${RELEASE_TAG}" "${image}:${TAG}"
+          for image in "${MOOSE_DEV_IMAGE}@${MOOSE_DEV_DIGEST}" "${MOOSE_IMAGE}@${MOOSE_DIGEST}"; do
+            docker buildx imagetools create --tag "${image%@*}:${RELEASE_TAG}" "$image"
           done
