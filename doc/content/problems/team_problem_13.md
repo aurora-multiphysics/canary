@@ -99,7 +99,7 @@ $H(\text{curl})$:
 \left( \nu\!\left(\left|\nabla \times \vec{A}\right|\right) \nabla \times \vec{A}, \nabla \times \vec{A}' \right)
 = \left( \vec{J}_s, \vec{A}' \right)
 
-with $\nu$ taken from the [B-H curve](#bh-curve) inside the steel and $1/\mu_0$ elsewhere.
+with $\nu$ taken from the [B-H curve](team_problem_13.md#bh-curve) inside the steel and $1/\mu_0$ elsewhere.
 `MFEMNLCurlCurlKernel` asks for $\nu$ and for $\left|\vec{B}\right| \partial \nu / \partial \left|\vec{B}\right|$,
 which the input forms from $H(B)$ and $H'(B)$ as
 
@@ -134,7 +134,7 @@ onto the mesh is not: the meshed coil boundary is faceted, so a little current l
 sub-app `team13_coil_source.i` takes that leak back out. It solves, over the whole mesh,
 
 !equation
-\left( \nabla\phi, \nabla\psi \right) = \left( \vec{J}_\text{applied}, \nabla\psi \right)_\text{coil}
+\left( \nabla\phi, \nabla\psi \right) = \left( \vec J_\text{applied}, \nabla\psi \right)_\text{coil}
 \qquad \text{for all } \psi,
 
 so that the current the main app uses, $\vec{J}_\text{applied}$ over the coil minus $\nabla\phi$ over the
@@ -165,10 +165,11 @@ carry $\vec{n} \times \vec{A} = 0$, which is $\vec{B} \cdot \vec{n} = 0$, holdin
 ### Removing the null space id=null-space
 
 A compatible right hand side makes the problem solvable, but $\vec{A}$ is still only determined up to a
-gradient, and the Newton iterates wander along that null space until the curl is lost to cancellation. A
-small mass term $\varepsilon(\vec{A}, \vec{A}')$ removes it. At $\varepsilon = 10^2$ it is around six orders
-of magnitude below the curl-curl term at the scale of this model and does not measurably perturb $\vec{B}$:
-the reported flux densities are unchanged to four decimal places over $1 \le \varepsilon \le 10^4$.
+gradient, and the Newton iterates wander along that null space until $\nabla \times \vec{A}$ is lost to
+cancellation. A small mass term $\varepsilon(\vec{A}, \vec{A}')$ removes it. At $\varepsilon = 10^2$ it is
+around six orders of magnitude below the curl-curl term at the scale of this model and does not measurably
+perturb $\vec{B}$: the reported flux densities are unchanged to four decimal places over
+$1 \le \varepsilon \le 10^4$.
 
 With the null space gone the system is no longer singular, and `MFEMHypreAMS` must be told so. Leaving
 `singular = true` set costs AMS most of its effectiveness here - the inner solves stop converging, the Newton
@@ -194,8 +195,9 @@ It agreed with the mass term on every reported flux density to $3 \times 10^{-4}
 $1 \times 10^{-3}$, which was a useful check on both. It also brought $\int|\vec{A}|^2$ down from
 $3.27 \times 10^{-1}$ to $1.45 \times 10^{-7}$, which was the reason to want it at the time - with an
 incompatible source the mass term leaves a potential some 2000 times the physical field, so `a_field` is only
-meaningful through its curl. Correcting the source removes that motivation, since the mass term now leaves no
-gradient at all. The gauge costs about 1.8 times the CG work, AMS being built for the ungauged operator.
+meaningful through $\vec{B} = \nabla \times \vec{A}$. Correcting the source removes that motivation, since
+the mass term now leaves no gradient at all. The gauge costs about 1.8 times the CG work, AMS being built for
+the ungauged operator.
 
 `MFEMHypreAMS`'s `block` parameter, which names the subdomains where the mass term is zero and hands hypre an
 interior-node marker for them, does not work here. It is a hint to the preconditioner, not a gauge: it tells
@@ -286,7 +288,7 @@ The test runs the 1000 AT case. The benchmark's other excitation is a command li
 ```
 
 It converges in 11 Newton iterations and takes about the same time as the 1000 AT case. That is down to the
-line search; see [Newton damping](#damping) below.
+line search; see [Newton damping](team_problem_13.md#damping) below.
 
 ## Results id=results
 
@@ -302,7 +304,7 @@ through the section, which is the component of $\vec{B}$ along it and not the ma
 here is the component, $\vec{B} \cdot \hat{n}$ with $\hat{n}$ the direction the flux runs in that part of
 the circuit: down the plate, along the flange towards the plate, and up the web. That makes every value
 positive and directly comparable with the table. The distinction only matters where the flux is turning, but
-there it matters a great deal - see [below](#turning).
+there it matters a great deal - see [below](team_problem_13.md#turning).
 
 The second is that a section is a plane, and an average over one is not something the postprocessors can take
 on an interior face, so each is reported as the average over a block of steel centred on it. The flange and
@@ -359,7 +361,7 @@ measure of how tightly the experiment pins the answer.
 Twenty-three of the twenty-five sit between 4% and 9% below the measurements, and flat across the whole
 circuit: the plate, the flange and the web are all short by about the same amount, which is what a single
 under-resolved reluctance looks like rather than an error local to one part. Refining the mesh moves the whole
-set up together, as the [convergence study](#convergence) below shows.
+set up together, as the [convergence study](team_problem_13.md#convergence) below shows.
 
 !media media/team13_positions.png
        id=all-positions
@@ -419,18 +421,18 @@ also takes the H(div) and L2 spaces carrying the derived fields up an order - gi
 | Range | -9.3% to -4.3% | -2.5% to +1.6% |
 | Position 7, at the turn out of the plate | -13.1% | -3.8% |
 | Degrees of freedom | 0.25M | 1.4M |
-| Run time | 1.3 min | 14 min |
+| Runtime | 1.3 min | 14 min |
 
-That is a better answer than first order reached on any mesh in the [study below](#convergence), including the
-865k element one at -3.8%, and it comes from 210k elements. It confirms what the mesh study implied: the flat
-few percent the first order results sit below the measurements is discretisation error in the gap, not
-something wrong with the model.
+That is a better answer than first order reached on any mesh in the
+[study below](team_problem_13.md#convergence), including the 865k element one at -3.8%, and it comes from 210k
+elements. It confirms what the mesh study implied: the flat few percent the first order results sit below the
+measurements is discretisation error in the gap, not something wrong with the model.
 
 Position 8 is the exception and moves the other way, from +25.9% to +31.7%. That is the expected sign. Its
 error is not discretisation but the band average standing in for a plane section, and a more accurate solution
 resolves the climb across that band better, so the average moves further from the value at the section itself.
 
-Second order needs the line search to converge at all; see [Newton damping](#damping).
+Second order needs the line search to converge at all; see [Newton damping](team_problem_13.md#damping).
 
 !media media/team13_flux.png
        id=flux-profile
@@ -503,7 +505,11 @@ above but is not a test and is left off the figures, there being no measurements
 
 ## References id=references
 
+<!-- textlint-disable terminology -->
+
 - T. Nakata, N. Takahashi and K. Fujiwara, *Summary of results for benchmark problem 13 (3-D non-linear
   magnetostatic model)*, COMPEL, 11, 3, 345 (1992).
 - [Problem statement](https://www.compumag.org/wp/wp-content/uploads/2018/06/problem13.pdf) - the geometry,
   the B-H curve, the measured flux densities and the reporting tables used above.
+
+<!-- textlint-enable terminology -->
