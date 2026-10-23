@@ -17,6 +17,22 @@
                   'benchmark, and shall report the average flux densities and sampled points that '
                   'the benchmark asks to be compared.'
   []
+  [TEAM_Problem_13_laplace_winding]
+    type = 'CSVDiff'
+    input = 'team13.i'
+    cli_args = 'coil_winding=laplace '
+               'Outputs/ParaViewDataCollection/enable=false '
+               'Outputs/ReportedPostprocessors/file_base=OutputData/TEAM13CSV_LAPLACE'
+    csvdiff = 'OutputData/TEAM13CSV_LAPLACE.csv
+               OutputData/TEAM13CSV_LAPLACE_air_line_0001.csv
+               OutputData/TEAM13CSV_LAPLACE_recommended_points_0001.csv'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 13 with the direction of the coil winding '
+                  'found from the mesh, by solving the Laplace equation for a potential with a jump '
+                  'across a cut through the closed coil, rather than given analytically.'
+  []
   [TEAM_Problem_13_second_order]
     type = 'CSVDiff'
     input = 'team13.i'

@@ -19,7 +19,7 @@
 # with the reluctivity nu = H(B)/B taken from the benchmark's B-H curve inside the
 # steel and 1/mu0 elsewhere. J_s is the coil current, solved for by the sub-app
 # team13_coil_source.i so that it is discretely divergence free; see there for why
-# projecting the analytic winding current directly is not good enough.
+# projecting the winding current directly is not good enough.
 #
 # Only the half of the model above z = 0 is meshed. Reflecting in that plane leaves
 # the coil current unchanged, so B_z is even and B_x and B_y are odd there: the
@@ -31,6 +31,12 @@
 # term in the Kernels block below removes them rather than the problem being gauged.
 
 ampere_turns = 1000 # AT; the benchmark also specifies 3000 AT
+
+# How the winding current is found before it is made divergence free. analytic
+# writes it down, which is exact for this coil (team13_coil_winding_analytic.i);
+# laplace finds its direction from the mesh by solving Laplace's equation in the
+# coil, as a coil with no closed-form path would need (team13_coil_winding_laplace.i).
+coil_winding = analytic
 
 # Order of the H(curl) space the vector potential lives in. The scalar space takes
 # the same order, since its gradients have to lie in the H(curl) one for the coil
@@ -184,15 +190,15 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
   # so A is only determined up to one and the Newton iterates wander along it until
   # the curl is lost to cancellation. This term removes the null space rather than
   # gauging the problem. It is around six orders of magnitude below the curl-curl
-  # term at the scale of this model, so it does not measurably perturb B: the
-  # reported flux densities are unchanged to four decimal places over
-  # 1 <= regularisation <= 1e4.
+  # term at the scale of this model, so it barely perturbs B: no reported flux
+  # density moves by more than 2e-5 over 1 <= regularisation <= 1e3, or by more
+  # than 2.4e-4 at 1e4.
   #
   # Because the source is divergence free, there is nothing in the right hand side
   # for this term to absorb, and it leaves no gradient behind in A: int|A|^2 comes
-  # out at 2.91e-9 whatever the coefficient. With the analytic current projected
-  # straight onto the mesh it was 3.27e-1 and scaled as 1/coefficient^2, which is
-  # what an incompatible right hand side looks like.
+  # out at 2.92e-9 whatever the coefficient. With the analytic current projected
+  # straight onto the mesh it is 5.50 and scales as 1/coefficient^2, which is what
+  # an incompatible right hand side looks like.
   [regularisation]
     type = MFEMVectorFEMassKernel
     variable = a_field
@@ -289,10 +295,10 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
     print_level = 1
     # Backtracking keeps the update from overshooting the knee of the B-H curve,
     # where the reluctivity rises fifteenfold over a few tenths of a tesla. On this
-    # mesh at 1000 AT the full step is always accepted and this costs nothing, but
+    # mesh at 1000 AT it saves one iteration and changes nothing measurable, but
     # without it anything that resolves the knee more sharply - a finer mesh, second
     # order elements, or 3000 AT - stalls in a limit cycle at a relative residual of
-    # a few times 1e-3 instead of converging.
+    # 4e-3 to 2e-2 instead of converging.
     line_search = backtracking
   []
 []
@@ -302,7 +308,7 @@ vacuum_reluctivity = '${fparse 1.0 / vacuum_permeability}' # m/H
   [coil_source]
     type = FullSolveMultiApp
     input_files = team13_coil_source.i
-    cli_args = 'ampere_turns=${ampere_turns};fe_order=${fe_order}'
+    cli_args = 'ampere_turns=${ampere_turns};fe_order=${fe_order};coil_winding=${coil_winding}'
     execute_on = INITIAL
   []
 []

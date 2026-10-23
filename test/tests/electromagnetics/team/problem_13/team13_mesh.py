@@ -147,23 +147,38 @@ def build(args):
     inner = rounded_box(COIL_A + COIL_RI, COIL_RI, -5.0, COIL_Z + 10.0)
     coil = occ.cut([(3, outer)], [(3, inner)])[0][0][1]
 
+    # The coil is a closed loop.  The alternative to the analytic winding direction
+    # finds it by solving for a potential that jumps by a fixed amount across a cut
+    # through the loop (see team13_coil_winding_laplace.i); the analytic one does
+    # not need the cut.  The cut is the coil's cross-section in the plane x = 0 on
+    # the +y side, where the coil is straight.  It is meshed as an interior face,
+    # and named as a sideset in to_exodus().
+    section = [(COIL_HALF, 0.0), (COIL_A + COIL_RO, 0.0),
+               (COIL_A + COIL_RO, COIL_Z), (COIL_HALF, COIL_Z)]
+    points = [occ.addPoint(0.0, y, z) for y, z in section]
+    lines = [occ.addLine(points[i], points[(i + 1) % 4]) for i in range(4)]
+    cut = occ.addPlaneSurface([occ.addCurveLoop(lines)])
+
     # -- free space and the conformal assembly ------------------------------
     box = occ.addBox(-air, -air, 0.0, 2 * air, 2 * air, air_z)
     solids = [(3, t) for t in plate + channel + measure + [coil]]
-    _, fmap = occ.fragment([(3, box)], solids)
+    _, fmap = occ.fragment([(3, box)], solids + [(2, cut)])
     occ.synchronize()
 
     # -- name the volumes ---------------------------------------------------
     # fragment reports, for each input solid, the pieces it ended up as, so the
     # blocks are read straight off that rather than guessed at from positions.
     # The first entry is the free space box, which fragment splits into every
-    # piece of the model; whatever is not claimed by a solid is the air.
-    pieces = [set(t for _, t in ents) for ents in fmap]
+    # piece of the model; whatever is not claimed by a solid is the air. The last
+    # entry is the cut, which is a surface rather than a volume.
+    if not fmap[-1]:
+        sys.exit("the cut through the coil was lost in the fragment")
+    pieces = [set(t for _, t in ents) for ents in fmap[:-1]]
     n_p, n_c, n_m = len(plate), len(channel), len(measure)
     plate_tags = set().union(*pieces[1:1 + n_p])
     channel_tags = set().union(*pieces[1 + n_p:1 + n_p + n_c])
     measure_tags = [pieces[1 + n_p + n_c + i] for i in range(n_m)]
-    coil_tags = pieces[-1]
+    coil_tags = pieces[1 + n_p + n_c + n_m]
     air_tags = pieces[0] - plate_tags - channel_tags - coil_tags
     # The measurement boxes overlap the channel boxes, so take them back out.
     channel_tags -= set().union(*measure_tags)
@@ -181,7 +196,8 @@ def build(args):
 
     # -- name the surfaces --------------------------------------------------
     # Only the two faces the solve needs: the symmetry plane and the truncation
-    # boundary that carries the tangential condition on A.  The measured sections
+    # boundary that carries the tangential condition on A.  The cut through the
+    # coil is named later, in to_exodus().  The measured sections
     # are reported as averages over the blocks above rather than as fluxes over
     # sidesets, so no section surfaces are named.  The tests are on bounding boxes
     # rather than centres of mass so that a large face cannot be mistaken for a
@@ -268,6 +284,11 @@ def to_exodus(args):
     bare integer attributes.  MOOSE reads the physical names out of the .msh and
     writes them as element block and sideset names, so a --mesh-only pass is all
     that is needed.
+
+    The cut through the coil is named here rather than in gmsh.  A physical
+    surface on an interior face reaches the Exodus file once from each element
+    either side of it, and MFEM rejects a boundary with every face doubled.
+    Taking only the sides whose outward normal is +x keeps one of each.
     """
     exe = args.exe or shutil.which("moose_test-opt")
     if not exe:
@@ -286,7 +307,11 @@ def to_exodus(args):
             "# block and sideset names reach MFEM, which reads named attribute sets from\n"
             "# Exodus only.\n"
             "[Mesh]\n  [fmg]\n    type = FileMeshGenerator\n"
-            f"    file = {os.path.basename(args.msh)}\n  []\n[]\n"
+            f"    file = {os.path.basename(args.msh)}\n  []\n"
+            "  [coil_cut]\n    type = ParsedGenerateSideset\n    input = fmg\n"
+            "    combinatorial_geometry = 'abs(x) < 1e-7 & y > 0'\n"
+            "    included_subdomains = Coil\n    included_neighbors = Coil\n"
+            "    normal = '1 0 0'\n    new_sideset_name = coil_cut\n  []\n[]\n"
             "[Problem]\n  solve = false\n[]\n[Executioner]\n  type = Steady\n[]\n"
         )
     try:
