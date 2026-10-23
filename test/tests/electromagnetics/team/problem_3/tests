@@ -1,0 +1,18 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the TEAM benchmark work
+  [TEAM_Problem_3]
+    type = 'CSVDiff'
+    input = 'team7.i'
+    csvdiff = 'OutputData/TEAM3CSV.csv
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce TEAM Problem 3, problem is a classic validation'
+    'test and consists of a conducting ladder with two holes placed below a coil carrying a '
+    'sinusoidal current. The coil is made of multiple turns strongly stranded together, so '
+    'the current in the coil is considered uniform (no eddy currents) while the ladder's induced'
+    'current diffuses through its thickness. The coil is located directly above one of the holes.'
+  []
+[]
