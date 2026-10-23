@@ -3,12 +3,13 @@
 #
 # Sub-app of team13.i, which is the input to run. It is launched automatically.
 #
-# The benchmark's coil is a winding carrying a uniform ampere-turn density, and
-# that field can be written down analytically. Projecting it straight onto the mesh
-# is not good enough for the main solve: the curl-curl operator there has every
-# gradient in its null space, so its right hand side has to be orthogonal to every
-# discrete gradient. The projected analytic current is not, because the meshed coil
-# boundary is faceted and a little current leaks across it.
+# The benchmark's coil is a winding carrying a uniform ampere-turn density. A
+# sub-app hands back that current, J_applied: team13_coil_winding_analytic.i writes
+# it down, and team13_coil_winding_laplace.i finds its direction from the mesh,
+# chosen by coil_winding. It is not good enough for the main solve as it stands:
+# the curl-curl operator there has every gradient in its null space, so its right
+# hand side has to be orthogonal to every discrete gradient. J_applied is not,
+# because the meshed coil boundary is faceted, so a little current leaks across it.
 #
 # This app removes that leak. It solves, over the whole mesh,
 #
@@ -36,10 +37,7 @@
 
 ampere_turns = 1000 # AT; overridden by the main app
 fe_order = FIRST # likewise; it has to match the main app's H(curl) space
-
-coil_core = 0.05 # m, half-width of the square the corner arcs are centred on
-coil_area = '${fparse 0.025 * 0.100}' # m2
-current_density = '${fparse ampere_turns / coil_area}' # A/m2
+coil_winding = analytic # likewise; analytic or laplace
 
 [Mesh]
   type = MFEMFileMesh
@@ -63,22 +61,6 @@ current_density = '${fparse ampere_turns / coil_area}' # A/m2
   []
 []
 
-[Functions]
-  # The specified winding current. d is the distance from the square core the corner
-  # arcs are centred on, so grad(d) points radially outwards and has unit length, and
-  # z_hat x grad(d) runs around the coil at uniform magnitude. The floor on the
-  # denominator only guards the core, where the numerators vanish too and the current
-  # is zero; outside the coil the expression is not used.
-  [applied_current_density]
-    type = ParsedVectorFunction
-    expression_x = '-J0 * (max(y-a,0)+min(y+a,0)) / max(sqrt((max(x-a,0)+min(x+a,0))^2 + (max(y-a,0)+min(y+a,0))^2), 1e-30)'
-    expression_y = 'J0 * (max(x-a,0)+min(x+a,0)) / max(sqrt((max(x-a,0)+min(x+a,0))^2 + (max(y-a,0)+min(y+a,0))^2), 1e-30)'
-    expression_z = '0'
-    symbol_names = 'J0 a'
-    symbol_values = '${current_density} ${coil_core}'
-  []
-[]
-
 [Variables]
   [correction_potential]
     type = MFEMVariable
@@ -90,17 +72,6 @@ current_density = '${fparse ampere_turns / coil_area}' # A/m2
   [applied_current]
     type = MFEMVariable
     fespace = HCurlFESpace
-  []
-[]
-
-[AuxKernels]
-  # The applied current is the right hand side of the solve, so it has to be in
-  # place before the solve runs rather than at the end of the step.
-  [project_applied_current]
-    type = MFEMVectorProjectionAux
-    variable = applied_current
-    vector_coefficient = applied_current_density
-    execute_on = TIMESTEP_BEGIN
   []
 []
 
@@ -136,6 +107,26 @@ current_density = '${fparse ampere_turns / coil_area}' # A/m2
     preconditioner = boomeramg
     l_tol = 1e-12
     l_max_its = 300
+  []
+[]
+
+[MultiApps]
+  # The applied current has to be in place before the solve, so it is fetched at
+  # INITIAL.
+  [coil_winding]
+    type = FullSolveMultiApp
+    input_files = 'team13_coil_winding_${coil_winding}.i'
+    cli_args = 'ampere_turns=${ampere_turns};fe_order=${fe_order}'
+    execute_on = INITIAL
+  []
+[]
+
+[Transfers]
+  [from_coil_winding]
+    type = MultiAppMFEMCopyTransfer
+    source_variables = 'applied_current'
+    variables = 'applied_current'
+    from_multi_app = coil_winding
   []
 []
 
