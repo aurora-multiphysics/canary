@@ -133,7 +133,7 @@ MooseRevision.h
 # Precompiled headers
 moose/include/base/Precompiled.h.gch
 
-# test garbagge
+# test garbage
 *.FAILED.txt
 
 # eclipse garbage
