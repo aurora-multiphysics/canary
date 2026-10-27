@@ -1,0 +1,18 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#108' # TODO: point at the issue/PR tracking the electromagnetic benchmark work
+  [HTS_Tape_AC_Loss]
+    type = 'CSVDiff'
+    input = 'hts_tape.i'
+    csvdiff = 'OutputData/HTSTapeCSV.csv
+               OutputData/HTSTapePeakProfile_current_density_profile_0100.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce benchmark 1 of the HTS Modelling Workgroup, computing the '
+                  'AC loss per cycle and the current density across a superconducting tape carrying a '
+                  'sinusoidal transport current at half its critical current, using a non-linear '
+                  'H(curl) magnetodynamic solve whose resistivity follows the power law E-J relation.'
+  []
+[]
