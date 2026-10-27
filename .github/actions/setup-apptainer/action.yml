@@ -1,0 +1,39 @@
+---
+name: Setup Apptainer
+description: >-
+  Installs Apptainer from its GitHub release, picking the .deb that the
+  runner's Ubuntu can install
+
+# In place of eWaterCycle/setup-apptainer, which only ever installs the .deb
+# built against libfuse3-3, so cannot install on Ubuntu 26.04, and which still
+# runs on the deprecated Node.js 20
+
+inputs:
+  apptainer-version:
+    description: Version of Apptainer to install
+    required: false
+    default: 1.5.5
+
+runs:
+  using: composite
+  steps:
+    - name: Install Apptainer
+      shell: bash
+      env:
+        APPTAINER_VERSION: ${{ inputs.apptainer-version }}
+      run: |
+        sudo apt-get update -q
+        # Each release has a .deb for libfuse3-3 (Ubuntu 24.04) and a -trixie+
+        # one for libfuse3-4 (Ubuntu 26.04 onwards); only one of the two is
+        # installable on any given runner
+        suffix=
+        if apt-cache show libfuse3-4 > /dev/null 2>&1; then
+          suffix=-trixie+
+        fi
+        deb="apptainer_${APPTAINER_VERSION}${suffix}_amd64.deb"
+        echo "Installing ${deb}"
+        releases=https://github.com/apptainer/apptainer/releases/download
+        curl -fsSL -o "${RUNNER_TEMP}/apptainer.deb" \
+          "${releases}/v${APPTAINER_VERSION}/${deb//+/%2B}"
+        sudo apt-get install -y "${RUNNER_TEMP}/apptainer.deb"
+        apptainer --version
