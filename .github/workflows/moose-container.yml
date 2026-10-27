@@ -57,11 +57,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # MOOSE revision that is tagged latest: the head of MOOSE next on 2026-10-20.
+  # MOOSE revision that is tagged latest: the head of MOOSE next on 2026-10-26.
   # Update it, ideally to a weekly 'next' build that passed, to move Canary onto
   # a newer MOOSE. It has to be a full commit SHA; that of an image is in its
   # org.opencontainers.image.version label and its MOOSE_REVISION variable.
-  MOOSE_REVISION: 39ac5ed5fc10f4996af4496cc1c5ac4cd725e433
+  MOOSE_REVISION: baffee920c5de26d319fd6bfd8386e273086675f
   MOOSE_DEV_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose-dev
   MOOSE_IMAGE: ghcr.io/${{ github.repository_owner }}/canary-moose
 
