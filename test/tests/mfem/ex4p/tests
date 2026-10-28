@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample4]
+    type = CSVDiff
+    input = ex4p.i
+    csvdiff = 'OutputData/ex4p.csv'
+    requirement = 'The system shall reproduce the L2 error of MFEM example 4, an H(div) diffusion '
+                  'problem with a manufactured solution, solved with Raviart-Thomas elements on '
+                  'the star mesh.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
