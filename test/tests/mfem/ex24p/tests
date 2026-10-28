@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample24]
+    type = CSVDiff
+    input = ex24p.i
+    csvdiff = 'OutputData/ex24p.csv'
+    requirement = 'The system shall reproduce the L2 errors of MFEM example 24, which projects the '
+                  'gradient of an H1 function onto Nedelec elements on the beam-hex mesh, by a mixed '
+                  'bilinear form, by the discrete gradient and by projecting the exact gradient.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
