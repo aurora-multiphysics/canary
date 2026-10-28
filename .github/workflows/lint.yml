@@ -43,6 +43,8 @@ jobs:
           # Flags every action not pinned to a commit SHA, across all workflows
           VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
           VALIDATE_JSCPD: false
+          # Its fixes break MooseDocs shortcut links and equations; markdownlint checks style
+          VALIDATE_MARKDOWN_PRETTIER: false
           # Would rerun the pre-commit hooks, which duplicate super-linter's own linters
           VALIDATE_PRE_COMMIT: false
           VALIDATE_PYTHON_BLACK: false
