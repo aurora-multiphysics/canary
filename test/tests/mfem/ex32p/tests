@@ -1,0 +1,16 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample32]
+    type = CSVDiff
+    input = ex32p.i
+    csvdiff = 'OutputData/ex32p_eigenvalues_0001.csv'
+    requirement = 'The system shall reproduce the five lowest nonzero eigenvalues of MFEM example 32, '
+                  'the Maxwell eigenproblem with an anisotropic dielectric tensor for a three '
+                  'component field on a two dimensional mesh, computed with AME preconditioned by '
+                  'AMS.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
