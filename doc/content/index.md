@@ -9,7 +9,8 @@ documentation are generated using the `moose_test` application found in `MOOSE_D
 
 ## Contents
 
-- [Demonstration problems](problems/index.md)
+- [Prequisites](getting_started/prerequisite.md)
+- [Example 1: Simple Diffusion](getting_started/example-1.md)
 
 ## Building this documentation id=building
 
