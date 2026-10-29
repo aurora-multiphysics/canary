@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample26]
+    type = CSVDiff
+    input = ex26p.i
+    csvdiff = 'OutputData/ex26p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 26, a '
+                  'Poisson problem on the star mesh solved with CG preconditioned by p-multigrid, '
+                  'with partial assembly on the finest level.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
