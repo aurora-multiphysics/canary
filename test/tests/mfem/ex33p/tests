@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample33]
+    type = CSVDiff
+    input = ex33p.i
+    csvdiff = 'OutputData/ex33p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 33, a '
+                  'fractional Poisson problem on the star mesh solved as a weighted sum of 12 '
+                  'independent reaction-diffusion problems.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
