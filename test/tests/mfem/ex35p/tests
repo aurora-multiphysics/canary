@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample35]
+    type = CSVDiff
+    input = ex35p.i
+    csvdiff = 'OutputData/ex35p.csv'
+    requirement = 'The system shall reproduce the L2 norm of the solution of MFEM example 35, a damped '
+                  'harmonic oscillator driven through a port boundary condition computed as an '
+                  'eigenmode on a boundary submesh in a sub-application.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
