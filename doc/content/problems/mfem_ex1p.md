@@ -26,9 +26,6 @@ boundaries, whereas `serial_refine` is a fixed count and [MFEMScalarDirichletBC]
 boundary attribute. The two agree on `star.mesh`, whose boundary is entirely external, but the input
 would need adjusting for other meshes.
 
-`ex1p` applies BoomerAMG as a single V-cycle per CG iteration, whereas [MFEMHypreBoomerAMG] iterates
-to a tolerance of `1e-5` by default, so the input sets `l_max_its = 1` and `l_tol = 0` to match.
-
 The test compares the $L^2$ norm of the solution, from [MFEML2Error] with `function = 0`, against
 the value $\|u\|_{L^2} = 0.37972504807552$ printed by `ex1p` after adding `x.ComputeL2Error(zero)`
 with a zero `ConstantCoefficient` at the end of the example. Run with `OMP_NUM_THREADS=1`, `ex1p`
