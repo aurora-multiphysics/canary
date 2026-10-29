@@ -19,9 +19,6 @@ first-order $H^1$ elements. Each step of `ex0p` maps onto one object in the inpu
 | `DomainLFIntegrator` with coefficient 1 | [MFEMDomainLFKernel] |
 | `CGSolver` preconditioned by `HypreBoomerAMG` | [MFEMCGSolver] preconditioned by [MFEMHypreBoomerAMG] |
 
-`ex0p` applies BoomerAMG as a single V-cycle per CG iteration, whereas [MFEMHypreBoomerAMG] iterates
-to a tolerance of `1e-5` by default, so the input sets `l_max_its = 1` and `l_tol = 0` to match.
-
 The test compares the $L^2$ norm of the solution, from [MFEML2Error] with `function = 0`, against
 the value $\|u\|_{L^2} = 0.37438237056131$ printed by `ex0p` after adding `x.ComputeL2Error(zero)`
 with a zero `ConstantCoefficient` at the end of the example. Run with `OMP_NUM_THREADS=1`, `ex0p`
