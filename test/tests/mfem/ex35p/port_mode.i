@@ -71,8 +71,6 @@
 [Solvers]
   [boomeramg]
     type = MFEMHypreBoomerAMG
-    l_tol = 0
-    l_max_its = 1
     print_level = 0
   []
   [lobpcg]
