@@ -1,0 +1,15 @@
+[Tests]
+  design = 'syntax/Problem/index.md'
+  issues = '#29632'
+  [MFEMExample2]
+    type = CSVDiff
+    input = ex2p.i
+    csvdiff = 'OutputData/ex2p.csv'
+    requirement = 'The system shall reproduce the displacement L2 norm of MFEM example 2, a linear '
+                  'elasticity problem for a two-material cantilever beam fixed at one end and '
+                  'pulled down at the other.'
+    capabilities = 'mfem'
+    compute_devices = 'cpu cuda'
+    recover = false
+  []
+[]
