@@ -483,8 +483,6 @@ d11 = 7.649166e-02
   [boomeramg]
     type = MFEMHypreBoomerAMG
     weak_form = term_0
-    l_tol = 0
-    l_max_its = 1
     print_level = -1
   []
   [cg]
