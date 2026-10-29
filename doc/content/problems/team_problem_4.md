@@ -34,11 +34,11 @@ around it. The supplied mesh has 26760 tetrahedra.
 Two blocks are defined, `Brick` for the conductor and `Vacuum` for the surrounding free space. The sidesets are
 named for the role they play:
 
-- `x_symmetry`, `y_symmetry`, `z_symmetry` (ids 4, 3, 2) — the three symmetry planes
-- `x_high`, `y_high`, `z_high` (ids 6, 5, 1) — the outer faces of the free space box
-- `semi_xsection_in` (id 7) — the cut through the brick wall on the $y = 0$ plane, between the hole and the
+- `x_symmetry`, `y_symmetry`, `z_symmetry` (IDs 4, 3, 2) — the three symmetry planes
+- `x_high`, `y_high`, `z_high` (IDs 6, 5, 1) — the outer faces of the free space box
+- `semi_xsection_in` (ID 7) — the cut through the brick wall on the $y = 0$ plane, between the hole and the
   outer face
-- `semi_xsection_out` (id 8) — the corresponding cut on the $x = 0$ plane
+- `semi_xsection_out` (ID 8) — the corresponding cut on the $x = 0$ plane
 
 The two `semi_xsection` sidesets are where the circulating current is measured. Each spans only half the brick
 thickness, because the octant is cut at $z = 0$, so the current through a full cross-section of the brick is
@@ -59,9 +59,9 @@ directly, it solves a scalar potential problem
 \nabla \cdot \left( \mu \nabla \phi \right) = 0, \qquad \phi = z \ \text{ where } \vec{B} \text{ is normal},
 
 whose solution is $\phi = z$, and takes $\vec{H}_\text{ext} = (B_0/\mu_0)\nabla\phi$. The result is a discrete
-gradient by construction, so its discrete curl vanishes to machine precision and contributes no spurious source
-current to the main app. Projecting the analytic field directly would leave a small discrete curl behind, which
-the main app would read as a real current.
+gradient by construction, so the discrete $\nabla \times \vec{H}_\text{ext}$ vanishes to machine precision and
+contributes no spurious source current to the main app. Projecting the analytic field directly would leave a small nonzero
+$\nabla \times \vec{H}_\text{ext}$ behind, which the main app would read as a real current.
 
 The $x = 0$ and $y = 0$ symmetry planes are left with the natural condition $\mu\,\partial\phi/\partial n = 0$,
 which $\phi = z$ satisfies exactly, so the discrete solution recovers the uniform field to round-off. Because the
@@ -227,6 +227,6 @@ directly, so a run that refined only the main app would fail rather than quietly
 
 ## References id=references
 
-- A. Kameari, *Results for benchmark calculations of problem 4 (the FELIX brick)*, COMPEL, 1988.
+- A. Kameari, _Results for benchmark calculations of problem 4 (the FELIX brick)_, COMPEL, 1988.
 - [Problem statement summary](https://ceae-server.colorado.edu/v2016/books/bmk/ch01s08ach67.html) — eddy current
   simulation of a conducting brick in a decaying magnetic field.
