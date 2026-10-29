@@ -29,9 +29,7 @@ with first-order vector $H^1$ elements. Each step of `ex2p` maps onto one object
 The input passes the vector space to [MFEMHypreBoomerAMG] through `fespace`, which configures it with
 `SetElasticityOptions()`, as `ex2p` does when run with `-elast`; by default `ex2p` uses
 `SetSystemsOptions()` instead. The preconditioner only changes the path to the solution: the two runs
-of `ex2p` give displacement $L^2$ norms that agree to about $10^{-11}$, relative. As in `ex2p`,
-BoomerAMG applies a single V-cycle per PCG iteration, which the input sets with `l_max_its = 1` and
-`l_tol = 0`.
+of `ex2p` give displacement $L^2$ norms that agree to about $10^{-11}$, relative.
 
 The test compares the $L^2$ norm of the displacement, from [MFEMVectorL2Error] with
 `function = '0 0'`, against the value $\|\mathbf{u}\|_{L^2} = 1.1067699081498$ printed by the
