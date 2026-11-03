@@ -125,6 +125,13 @@ def to_exodus(args):
     bare integer attributes.  MOOSE reads the physical names out of the .msh and
     writes them as element block and sideset names, so a --mesh-only pass is all
     that is needed.
+
+    The pass also adds two sidesets on which the T-A formulation fixes the
+    tangential current vector potential: tape_boundary, the face and end of the
+    tape where it meets free space, and tape_centre_line, the part of y_axis that
+    bounds the tape.  They are made here rather than as gmsh physical groups
+    because gmsh writes an interior curve once from each side, and a curve in two
+    groups twice.
     """
     exe = args.exe or shutil.which("moose_test-opt")
     if not exe:
@@ -143,7 +150,14 @@ def to_exodus(args):
             "# block and sideset names reach MFEM, which reads named attribute sets from\n"
             "# Exodus only.\n"
             "[Mesh]\n  [fmg]\n    type = FileMeshGenerator\n"
-            f"    file = {os.path.basename(args.msh)}\n  []\n[]\n"
+            f"    file = {os.path.basename(args.msh)}\n  []\n"
+            "  [tape_boundary]\n    type = SideSetsBetweenSubdomainsGenerator\n"
+            "    input = fmg\n    primary_block = Tape\n    paired_block = Air\n"
+            "    new_boundary = tape_boundary\n  []\n"
+            "  [tape_centre_line]\n    type = ParsedGenerateSideset\n"
+            "    input = tape_boundary\n    combinatorial_geometry = 'x < 1'\n"
+            "    included_boundaries = y_axis\n    included_subdomains = Tape\n"
+            "    new_sideset_name = tape_centre_line\n  []\n[]\n"
             "[Problem]\n  solve = false\n[]\n[Executioner]\n  type = Steady\n[]\n"
         )
     try:

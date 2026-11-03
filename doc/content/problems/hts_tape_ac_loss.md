@@ -17,6 +17,9 @@ form due to Norris, which makes this benchmark a verification problem as well as
 This example uses the MFEM backend of MOOSE, so it requires an application built with MFEM support. It is
 skipped by `./run_tests` when that capability is absent.
 
+The same benchmark is solved with the T-A formulation, which treats the tape as a thin strip and free space
+as magnetostatics, in [HTS Tape AC Loss: The T-A Formulation](hts_tape_ac_loss_ta.md), on the same mesh.
+
 ## Problem Specification id=specification
 
 | Quantity | Value |
@@ -180,6 +183,7 @@ the power law that the residual overflows and the run fails. Backtracking brings
 | File | Role |
 | :- | :- |
 | `hts_tape.i` | The solve. This is the input to run. |
+| `hts_tape_ta.i` | The same problem with the T-A formulation, documented [separately](hts_tape_ac_loss_ta.md). |
 | `hts_tape_mesh.py` | Builds `hts_tape.e` with gmsh. Run with `--help` for the meshing controls. |
 | `hts_tape.e` | The mesh, as built by `hts_tape_mesh.py` with its defaults. |
 | `run_ac_loss_sweep.py` | Runs the whole benchmark, extrapolates in time, and writes the table and figures below. |

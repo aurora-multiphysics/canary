@@ -2,7 +2,8 @@
 # ==================================================================================
 #
 # Benchmark #1 of the HTS Modelling Workgroup. The benchmark and the results are
-# documented in doc/content/problems/hts_tape_ac_loss.md. Build the mesh first with
+# documented in doc/content/problems/hts_tape_ac_loss.md. hts_tape_ta.i solves the same
+# problem on the same mesh with the T-A formulation. Build the mesh first with
 #
 #   hts_tape_mesh.py
 #

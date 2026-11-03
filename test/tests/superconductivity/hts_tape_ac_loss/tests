@@ -15,4 +15,20 @@
                   'sinusoidal transport current at half its critical current, using a non-linear '
                   'H(curl) magnetodynamic solve whose resistivity follows the power law E-J relation.'
   []
+  [HTS_Tape_AC_Loss_TA]
+    type = 'CSVDiff'
+    input = 'hts_tape_ta.i'
+    csvdiff = 'OutputData/HTSTapeTACSV.csv
+               OutputData/HTSTapeTAPeakProfile_current_density_profile_0190.csv'
+    cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+    capabilities = 'mfem'
+    recover = false
+    restep = false
+    requirement = 'The system shall reproduce benchmark 1 of the HTS Modelling Workgroup, computing the '
+                  'AC loss per cycle and the current density across a superconducting tape carrying a '
+                  'sinusoidal transport current at half its critical current, using the thin strip T-A '
+                  'formulation, which couples a current vector potential in the tape, whose '
+                  'resistivity follows the power law E-J relation, to a magnetic vector potential in '
+                  'the whole cross-section.'
+  []
 []

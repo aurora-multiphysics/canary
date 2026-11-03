@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Sweep the HTS tape AC loss benchmark over the transport current and compare.
 
-Runs hts_tape.i at each ratio I_m/I_c the benchmark asks for, 0.1 to 0.9, and
+Runs hts_tape.i, the H formulation, or with --formulation ta hts_tape_ta.i, the
+T-A formulation, at each ratio I_m/I_c the benchmark asks for, 0.1 to 0.9, and
 compares the loss per cycle with the Norris formula for a thin strip in the
 critical state,
 
@@ -18,12 +19,14 @@ has not yet reached.
 
 Backward Euler makes the loss first order in the time step, so each ratio is run
 at --steps-per-cycle and at twice that, and Richardson-extrapolated to the limit.
-The results are printed as the markdown table in
-doc/content/problems/hts_tape_ac_loss.md, and the figures there are written with
---plot.
+The results are printed as the markdown tables in
+doc/content/problems/hts_tape_ac_loss.md and hts_tape_ac_loss_ta.md, and the
+figures there are written with --plot. The T-A table also compares with the H
+formulation, if its sweep has been run.
 
 Usage:
     ./run_ac_loss_sweep.py --exe /path/to/moose_test-opt --plot
+    ./run_ac_loss_sweep.py --formulation ta --exe /path/to/moose_test-opt --plot
     ./run_ac_loss_sweep.py --reuse --plot     # re-analyse without re-running
 """
 
@@ -38,9 +41,14 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-INPUT = HERE / "hts_tape.i"
-OUT = HERE / "OutputData" / "sweep"
 MEDIA = HERE.parents[3] / "doc" / "content" / "media"
+# The input, the directory its sweep is written to, and the prefix of its figures,
+# for each formulation.
+FORMULATIONS = {
+    "h": (HERE / "hts_tape.i", HERE / "OutputData" / "sweep", "hts_tape"),
+    "ta": (HERE / "hts_tape_ta.i", HERE / "OutputData" / "sweep_ta", "hts_tape_ta"),
+}
+INPUT, OUT, FIGURE = FORMULATIONS["h"]
 
 MU0 = 4e-7 * math.pi
 I_C = 300.0  # A
@@ -83,15 +91,25 @@ def run(exe, n, f, steps, extra):
     """Run one case, one at a time; the solve is serial and small."""
     base = OUT / tag(n, f, steps)
     cmd = [exe, "-i", INPUT.name, f"n_value={n}", f"current_ratio={f}", f"steps_per_cycle={steps}",
-           "Outputs/ParaViewDataCollection/enable=false", "Solvers/newton/print_level=0",
+           "Outputs/ParaViewDataCollection/enable=false", "Solvers/newton/print_level=1",
            f"Outputs/ReportedPostprocessors/file_base={base}_loss",
            f"Outputs/PeakProfile/file_base={base}_profile"] + extra
     print(f"running n = {n:g}, I_m/I_c = {f:g} at {steps} steps per cycle", flush=True)
-    subprocess.run(cmd, cwd=HERE, check=True, stdout=subprocess.DEVNULL)
+    with open(f"{base}.log", "w") as log:
+        subprocess.run(cmd, cwd=HERE, check=True, stdout=log, stderr=subprocess.STDOUT)
 
 
-def loss(n, f, steps):
-    with open(OUT / f"{tag(n, f, steps)}_loss.csv") as fh:
+def unconverged(n, f, steps, max_its=50):
+    """Steps in which Newton ran out of iterations, which MFEMTransient does not stop for."""
+    try:
+        with open(OUT / f"{tag(n, f, steps)}.log") as fh:
+            return sum(line.startswith(f"Newton iteration {max_its} :") for line in fh)
+    except FileNotFoundError:
+        return None
+
+
+def loss(n, f, steps, out=None):
+    with open((out or OUT) / f"{tag(n, f, steps)}_loss.csv") as fh:
         return float(list(csv.DictReader(fh))[-1]["LossPerCycle"])
 
 
@@ -102,7 +120,7 @@ def profile(n, f, steps):
     return [float(r["x_0"]) for r in rows], [float(r["j_field_0"]) for r in rows]
 
 
-def plot(results, n_values, steps):
+def plot(results, n_values, steps_for):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -123,12 +141,12 @@ def plot(results, n_values, steps):
     ax.grid(True, which="both", alpha=0.3)
     ax.legend()
     fig.tight_layout()
-    fig.savefig(MEDIA / "hts_tape_ac_loss.png", dpi=150)
+    fig.savefig(MEDIA / f"{FIGURE}_ac_loss.png", dpi=150)
 
     fig, ax = plt.subplots(figsize=(6, 4.5))
     for f, colour in zip(PROFILE_RATIOS, ("C0", "C3")):
         for n, style in zip(n_values, ("-", ":", "-.")):
-            x, j = profile(n, f, 2 * steps)
+            x, j = profile(n, f, 2 * steps_for[n])
             ax.plot([1e3 * xi for xi in x], [ji / j_c for ji in j], style, color=colour,
                     label=f"MOOSE, n = {n:g}, $I_m/I_c$ = {f:g}")
         xs = [HALF_WIDTH * i / 600 for i in range(601)]
@@ -142,16 +160,32 @@ def plot(results, n_values, steps):
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper left", fontsize="small")
     fig.tight_layout()
-    fig.savefig(MEDIA / "hts_tape_current_density.png", dpi=150)
+    fig.savefig(MEDIA / f"{FIGURE}_current_density.png", dpi=150)
     print(f"wrote figures to {MEDIA}")
 
 
+def extrapolated_h_loss(n, f, steps):
+    """The H formulation's extrapolated loss, if its sweep has been run, else None."""
+    h_out = FORMULATIONS["h"][1]
+    try:
+        return 2 * loss(n, f, 2 * steps, h_out) - loss(n, f, steps, h_out)
+    except FileNotFoundError:
+        return None
+
+
 def main():
+    global INPUT, OUT, FIGURE
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--formulation", choices=sorted(FORMULATIONS), default="h",
+                   help="h for hts_tape.i, ta for hts_tape_ta.i")
     p.add_argument("--exe", help="MOOSE application built with MFEM")
-    p.add_argument("--steps-per-cycle", type=int, default=400,
-                   help="coarser of the two time steps run at each ratio")
+    p.add_argument("--steps-per-cycle", type=int, nargs="+", default=[400],
+                   help="coarser of the two time steps run at each ratio: one for all the "
+                        "exponents, or one for each of --n-values")
+    p.add_argument("--h-steps-per-cycle", type=int, default=400,
+                   help="coarser time step of the H formulation's sweep, which the T-A table "
+                        "compares with")
     p.add_argument("--ratios", type=float, nargs="+", default=RATIOS)
     p.add_argument("--n-values", type=float, nargs="+", default=[25, 101],
                    help="power law exponents; the critical state is the limit of large n")
@@ -159,31 +193,44 @@ def main():
     p.add_argument("--plot", action="store_true", help="write the documentation figures")
     p.add_argument("extra", nargs="*", help="further command line arguments for the input")
     args = p.parse_args()
+    INPUT, OUT, FIGURE = FORMULATIONS[args.formulation]
 
-    s = args.steps_per_cycle
+    if len(args.steps_per_cycle) not in (1, len(args.n_values)):
+        p.error("give --steps-per-cycle once, or once for each of --n-values")
+    steps_for = dict(zip(args.n_values, args.steps_per_cycle * len(args.n_values)
+                         if len(args.steps_per_cycle) == 1 else args.steps_per_cycle))
     if not args.reuse:
         exe = find_executable(args.exe)
         OUT.mkdir(parents=True, exist_ok=True)
         for n in args.n_values:
             for f in args.ratios:
-                for steps in (s, 2 * s):
+                for steps in (steps_for[n], 2 * steps_for[n]):
                     run(exe, n, f, steps, args.extra)
 
     results = []
     for n in args.n_values:
         for f in args.ratios:
+            s = steps_for[n]
             q1, q2 = loss(n, f, s), loss(n, f, 2 * s)
-            results.append((n, f, q1, q2, 2 * q2 - q1, norris_loss(f)))
+            results.append((n, f, s, q1, q2, 2 * q2 - q1, norris_loss(f)))
 
-    print(f"\n| $n$ | $I_m/I_c$ | {s} steps (J/m) | {2 * s} steps (J/m) | extrapolated (J/m) "
-          f"| Norris (J/m) | difference |")
-    print("| - | - | - | - | - | - | - |")
-    for n, f, q1, q2, q, qn in results:
-        print(f"| {n:g} | {f:g} | {q1:.4e} | {q2:.4e} | {q:.4e} | {qn:.4e} "
-              f"| {100 * (q / qn - 1):+.1f}% |")
+    compare = args.formulation != "h"
+    print("\n| $n$ | $I_m/I_c$ | steps per cycle | loss (J/m) | at twice the steps (J/m) "
+          "| extrapolated (J/m) | Norris (J/m) | difference | steps not converged |"
+          + (" H formulation (J/m) | difference |" if compare else ""))
+    print("| - | - | - | - | - | - | - | - | - |" + (" - | - |" if compare else ""))
+    for n, f, s, q1, q2, q, qn in results:
+        bad = [unconverged(n, f, k) for k in (s, 2 * s)]
+        bad = "/".join("?" if b is None else str(b) for b in bad)
+        row = (f"| {n:g} | {f:g} | {s} | {q1:.4e} | {q2:.4e} | {q:.4e} | {qn:.4e} "
+               f"| {100 * (q / qn - 1):+.1f}% | {bad} |")
+        if compare:
+            qh = extrapolated_h_loss(n, f, args.h_steps_per_cycle)
+            row += f" {qh:.4e} | {100 * (q / qh - 1):+.2f}% |" if qh else " | |"
+        print(row)
 
     if args.plot:
-        plot(results, args.n_values, s)
+        plot([r[:2] + r[3:] for r in results], args.n_values, steps_for)
 
 
 if __name__ == "__main__":
