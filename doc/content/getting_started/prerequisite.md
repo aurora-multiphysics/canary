@@ -18,3 +18,5 @@
     [here](https://mooseframework.inl.gov/getting_started/examples_and_tutorials/index.html)
   - And work through at least
     [Example 1: As Simple As It Gets](https://mooseframework.inl.gov/getting_started/examples_and_tutorials/examples/ex01_inputfile.html)
+
+!content pagination next=getting_started/example-1.md

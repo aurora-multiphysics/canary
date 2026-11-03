@@ -17,7 +17,7 @@ which may look unfamiliar compared with a standard input file.
 Firstly, for any FEM simulation, we need to mesh over our domain. This can be
 done either with an auto-generated mesh or an externally generated mesh file.
 Here our example opts to us a pre-generated mesh which is loaded using
-`MFEMFileMesh`](https://mooseframework.inl.gov/source/mfem/mesh/MFEMFileMesh.html).
+[`MFEMFileMesh`](https://mooseframework.inl.gov/source/mfem/mesh/MFEMFileMesh.html).
 
 !listing test/tests/mfem/kernels/diffusion.i block=Mesh
 
@@ -55,13 +55,18 @@ representations must agree at their boundaries.
 - For `ND` the tangential vector component agrees.
 - For `RT` the normal vector component agrees.
 
-Our example deals with a continuous variable `concentration` and a vector-field
-[auxiliary variable](https://mooseframework.inl.gov/syntax/AuxVariables/)
-`concentration_gradient` (discussed in more detail later).
-Thus we create two first order finite element spaces to house these variables.
-First order
-[shape functions](https://mooseframework.inl.gov/source/problems/FEProblemBase.html#shape_functions)
-will be sufficient for our basic diffusion example.
+Our example defines a continuous scalar variable, `concentration`, and a
+vector [auxiliary variable](https://mooseframework.inl.gov/syntax/AuxVariables/),
+`concentration_gradient`. We use two first-order finite element spaces to
+represent them.
+
+Concentration uses an H1 space, ensuring its value is continuous across
+element boundaries. Concentration gradient can have jumps in its normal
+component, while the tangential component remains continuous as concentration
+agrees along each shared boundary. An `ND` space provides this continuity and is
+the space required by
+[`MFEMGradAux`](https://mooseframework.inl.gov/source/mfem/auxkernels/MFEMGradAux.html)
+to store the gradient.
 
 !listing test/tests/mfem/kernels/diffusion.i block=FESpaces Variables AuxVariables
 
@@ -195,9 +200,11 @@ This example can be run by using the following commands from your MOOSE
 repository root:
 
 ```bash
-# Go to test directory, simulation data will be output here
+# Go to test directory
 cd test
 ./moose_test-opt -i tests/mfem/kernels/diffusion.i
+# output expected in:
+# <moose-root>/test/OutputData/ParaViewDataCollection/Run<N>/
 ```
 
 By default this will generate a csv results file. If `active` in the `Output`
@@ -206,3 +213,5 @@ Paraview.
 
 !style halign=center
 !media media/example-1-paraview.png style=width:70% alt=The concentration solution to diffusion.i displayed in paraview. The mug has a smooth gradient from the values of 1 at the top to 0 at the bottom.
+
+!content pagination previous=getting_started/prerequisite.md next=getting_started/example-2.md
