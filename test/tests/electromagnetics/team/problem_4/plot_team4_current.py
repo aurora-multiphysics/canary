@@ -72,7 +72,7 @@ def plot(times, totals, output):
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter, MultipleLocator
 
-    fig, ax = plt.subplots(figsize=(7.2, 4.3), dpi=200)
+    fig, ax = plt.subplots(figsize=(5.2, 7.2), dpi=200)
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
 
@@ -120,7 +120,7 @@ def plot(times, totals, output):
     ax.set_xlabel("Time (ms)", color=TEXT_SECONDARY, fontsize=10)
     ax.set_ylabel("Current (kA)", color=TEXT_SECONDARY, fontsize=10)
     ax.set_title(
-        "Total current circulating around the hole in the FELIX brick",
+        "Total current circulating around\nthe hole in the FELIX brick",
         color=TEXT_PRIMARY,
         fontsize=12,
         loc="left",
@@ -132,7 +132,7 @@ def plot(times, totals, output):
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
     ax.tick_params(colors=TEXT_SECONDARY, labelsize=9, length=0)
     ax.set_xlim(0, max(times))
-    ax.set_ylim(0, max(totals) * 1.15)
+    ax.set_ylim(0, 4e3)
 
     fig.tight_layout()
     output.parent.mkdir(parents=True, exist_ok=True)

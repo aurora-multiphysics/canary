@@ -154,7 +154,7 @@ The current rises from zero, peaks at 10.9 ms and then decays away with the appl
        caption=Total current circulating around the hole, for a full cross-section of the brick. The eddy current
                lags the applied field: it peaks at 10.9 ms, well after the field has begun to collapse, and then
                decays with it.
-       style=width:80%;margin-left:auto;margin-right:auto;
+       style=width:48%;margin-left:auto;margin-right:auto;
 
 The figure is produced by `plot_team4_current.py`, which reads the postprocessor CSV and doubles the reported
 limb current to span the full brick thickness. Regenerate it after a run with:
