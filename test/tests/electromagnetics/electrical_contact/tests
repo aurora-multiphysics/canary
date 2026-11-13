@@ -45,4 +45,34 @@
                'resistance of the rods and the film in series.'
     []
   []
+  [Electrical_Contact_Interface]
+    requirement = 'The system shall compute the resistance of the same electrical contact with the '
+                  'film over the spot imposed as a jump in potential across a surface of no '
+                  'thickness, by an interface kernel coupling a potential on either side of it,'
+    [Filmed_Spot]
+      type = 'CSVDiff'
+      input = 'electrical_contact_interface.i'
+      csvdiff = 'OutputData/ElectricalContactInterfaceCSV.csv
+                 OutputData/ElectricalContactInterfaceCSV_contact_plane_potential_0001.csv'
+      cli_args = 'Outputs/ParaViewDataCollection/enable=false'
+      capabilities = 'mfem'
+      recover = false
+      detail = 'for a film whose resistance is comparable to the constriction resistance of the '
+               'spot, reproducing the resistance of the contact and the current density through '
+               'the spot of a semi-analytic solution, and'
+    []
+    [Full_Contact]
+      type = 'CSVDiff'
+      input = 'electrical_contact_interface.i'
+      csvdiff = 'OutputData/ElectricalContactInterfaceFullCSV.csv'
+      cli_args = 'Mesh/file=electrical_contact_interface_full.e spot_radius=5e-3
+                  contact_conductance=1e9
+                  Outputs/ReportedPostprocessors/file_base=OutputData/ElectricalContactInterfaceFullCSV
+                  Outputs/ParaViewDataCollection/enable=false'
+      capabilities = 'mfem'
+      recover = false
+      detail = 'for rods in contact over their whole faces, reproducing the exact one-dimensional '
+               'resistance of the rods and the film in series.'
+    []
+  []
 []

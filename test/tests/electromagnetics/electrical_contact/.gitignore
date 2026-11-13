@@ -7,3 +7,5 @@ __pycache__/
 # The meshes the tests read, which the repository's *.e rule would otherwise hide.
 !electrical_contact.e
 !electrical_contact_full.e
+!electrical_contact_interface.e
+!electrical_contact_interface_full.e

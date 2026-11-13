@@ -17,6 +17,12 @@ the largest size asked for.
 With --spot-radius equal to --rod-radius the rods touch over their whole faces
 and the problem is one-dimensional.
 
+With --interface the film has no thickness: the rods meet on the plane z = 0, and the
+spot is an interior sideset, "spot", for an interface kernel to impose the jump in
+potential across the film on. The gap outside it is meshed conformingly but carries no
+current, as nothing couples the two sides there. The film thickness then only sets the
+size of the elements at the edge of the spot.
+
 Dimensions are in millimetres here; the mesh is written in metres. Run with --help
 for the meshing controls.
 """
@@ -35,7 +41,7 @@ def build(args):
     import gmsh
 
     a, b, half_length = args.spot_radius, args.rod_radius, args.rod_half_length
-    h = 0.5 * args.film_thickness
+    h = 0.0 if args.interface else 0.5 * args.film_thickness
     if not 0 < a <= b:
         sys.exit("the spot radius must be positive and no larger than the rod radius")
     full_contact = math.isclose(a, b)
@@ -45,24 +51,35 @@ def build(args):
     gmsh.model.add("electrical_contact")
     geo = gmsh.model.geo
 
-    # Points on the film, and on the faces of the rods either side of the gap.
-    film_axis = [geo.addPoint(0, z, 0) for z in (-h, h)]
-    spot_edge = [geo.addPoint(a, z, 0) for z in (-h, h)]
-    rim = spot_edge if full_contact else [geo.addPoint(b, z, 0) for z in (-h, h)]
+    # Points on the film, and on the faces of the rods either side of the gap. With
+    # no film, the faces either side of it are one and the same.
+    def pair(r):
+        return [geo.addPoint(r, 0, 0)] * 2 if args.interface else \
+            [geo.addPoint(r, z, 0) for z in (-h, h)]
+
+    film_axis = pair(0)
+    spot_edge = pair(a)
+    rim = spot_edge if full_contact else pair(b)
     electrode_axis = [geo.addPoint(0, z, 0) for z in (-half_length, half_length)]
     electrode_rim = [geo.addPoint(b, z, 0) for z in (-half_length, half_length)]
 
     # The film. Its faces run from the axis to the edge of the spot.
-    film_face = [geo.addLine(film_axis[i], spot_edge[i]) for i in (0, 1)]
-    film_axis_line = geo.addLine(film_axis[0], film_axis[1])
-    film_edge_line = geo.addLine(spot_edge[0], spot_edge[1])
-    film = geo.addPlaneSurface([geo.addCurveLoop(
-        [film_face[0], film_edge_line, -film_face[1], -film_axis_line])])
+    if args.interface:
+        film_face = [geo.addLine(film_axis[0], spot_edge[0])] * 2
+        gaps = [None] * 2 if full_contact else [geo.addLine(spot_edge[0], rim[0])] * 2
+        film = film_axis_line = film_edge_line = None
+    else:
+        film_face = [geo.addLine(film_axis[i], spot_edge[i]) for i in (0, 1)]
+        gaps = [None if full_contact else geo.addLine(spot_edge[i], rim[i]) for i in (0, 1)]
+        film_axis_line = geo.addLine(film_axis[0], film_axis[1])
+        film_edge_line = geo.addLine(spot_edge[0], spot_edge[1])
+        film = geo.addPlaneSurface([geo.addCurveLoop(
+            [film_face[0], film_edge_line, -film_face[1], -film_axis_line])])
 
     # The rods: i = 0 is the aluminium below the film, i = 1 the copper above it.
     rods, gap_faces, electrodes, sides, axes = [], [], [], [], []
     for i, sign in ((0, -1), (1, 1)):
-        gap = None if full_contact else geo.addLine(spot_edge[i], rim[i])
+        gap = gaps[i]
         side = geo.addLine(rim[i], electrode_rim[i])
         electrode = geo.addLine(electrode_rim[i], electrode_axis[i])
         axis = geo.addLine(electrode_axis[i], film_axis[i])
@@ -81,25 +98,29 @@ def build(args):
     edge_size = args.edge_size * args.film_thickness
     ratio = 1 + args.growth
     n = max(1, math.ceil(math.log(1 + args.growth * a / edge_size) / math.log(ratio)))
-    for c in film_face:
+    for c in set(film_face):
         geo.mesh.setTransfiniteCurve(c, n + 1, "Progression", 1 / ratio)
-    for c in (film_axis_line, film_edge_line):
-        geo.mesh.setTransfiniteCurve(c, args.film_elements + 1)
-    geo.mesh.setTransfiniteSurface(film)
-    geo.mesh.setRecombine(2, film)
+    if film:
+        for c in (film_axis_line, film_edge_line):
+            geo.mesh.setTransfiniteCurve(c, args.film_elements + 1)
+        geo.mesh.setTransfiniteSurface(film)
+        geo.mesh.setRecombine(2, film)
     geo.synchronize()
 
+    # Interior boundaries are not named here: MOOSE would write each of their faces
+    # twice, once from either side, and the spot is added on conversion instead.
     groups = [
         (2, [rods[1]], "Copper"),
         (2, [rods[0]], "Aluminium"),
-        (2, [film], "Film"),
         (1, [electrodes[1]], "copper_electrode"),
         (1, [electrodes[0]], "aluminium_electrode"),
-        (1, axes + [film_axis_line], "axis"),
+        (1, axes + ([film_axis_line] if film else []), "axis"),
         (1, sides, "outer"),
     ]
-    if not full_contact:
-        groups.append((1, [film_edge_line] + gap_faces, "gap"))
+    if film:
+        groups.append((2, [film], "Film"))
+        if not full_contact:
+            groups.append((1, [film_edge_line] + gap_faces, "gap"))
     for dim, tags, name in groups:
         gmsh.model.setPhysicalName(dim, gmsh.model.addPhysicalGroup(dim, tags), name)
 
@@ -123,7 +144,7 @@ def build(args):
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.option.setNumber("Mesh.ScalingFactor", MM)  # millimetres -> metres
     gmsh.write(args.msh)
-    n_quad = len(gmsh.model.mesh.getElementsByType(3)[0])
+    n_quad = len(gmsh.model.mesh.getElementsByType(3)[0]) if film else 0
     n_tri = len(gmsh.model.mesh.getElementsByType(2)[0])
     gmsh.finalize()
     print(f"wrote {args.msh}: {n_quad} quadrilaterals in the film, {n_tri} triangles")
@@ -148,13 +169,21 @@ def to_exodus(args):
 
     here = os.path.dirname(os.path.abspath(args.msh)) or "."
     conv = os.path.join(here, ".electrical_contact_convert.i")
+    # The spot, from the copper side, which faces down onto it: its faces are those
+    # of the plane z = 0 with their midpoints inside the spot.
+    spot = (
+        "  [spot]\n    type = ParsedGenerateSideset\n    input = fmg\n"
+        f"    combinatorial_geometry = 'x < {args.spot_radius * MM}'\n"
+        "    included_subdomains = Copper\n    included_neighbors = Aluminium\n"
+        "    normal = '0 -1 0'\n    new_sideset_name = spot\n  []\n"
+    ) if args.interface else ""
     with open(conv, "w") as fh:
         fh.write(
             "# Written by electrical_contact_mesh.py; converts the gmsh mesh to Exodus so\n"
             "# that the block and sideset names reach MFEM, which reads named attribute\n"
             "# sets from Exodus only.\n"
             "[Mesh]\n  [fmg]\n    type = FileMeshGenerator\n"
-            f"    file = {os.path.basename(args.msh)}\n  []\n[]\n"
+            f"    file = {os.path.basename(args.msh)}\n  []\n{spot}[]\n"
             "[Problem]\n  solve = false\n[]\n[Executioner]\n  type = Steady\n[]\n"
         )
     try:
@@ -188,6 +217,9 @@ def main():
                    help="rate at which the element size grows with distance from the "
                         "edge of the spot")
     p.add_argument("--max-size", type=float, default=1.0, help="largest element size (mm)")
+    p.add_argument("--interface", action="store_true",
+                   help="give the film no thickness, and mark the spot as an interior "
+                        "sideset for an interface kernel")
     p.add_argument("--msh", default="electrical_contact.msh")
     p.add_argument("--exodus", default="electrical_contact.e")
     p.add_argument("--exe", help="MOOSE executable used for the Exodus conversion")
